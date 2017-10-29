@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search> 
+  
+    
+    <entry>
+      <title><![CDATA[Blog will work soon....]]></title>
+      <url>/2017/10/29/work-soon/</url>
+      <content type="html"><![CDATA[<h3 id="Will-work-soon"><a href="#Will-work-soon" class="headerlink" title="Will work soon"></a>Will work soon</h3><pre><code class="javascript">console.log(&quot;It would be great!&quot;)
+</code></pre>
+<h1 id="H1"><a href="#H1" class="headerlink" title="H1"></a>H1</h1><h2 id="H2"><a href="#H2" class="headerlink" title="H2"></a>H2</h2><h3 id="H3"><a href="#H3" class="headerlink" title="H3"></a>H3</h3><h4 id="H4"><a href="#H4" class="headerlink" title="H4"></a>H4</h4><h5 id="H5"><a href="#H5" class="headerlink" title="H5"></a>H5</h5><h6 id="H6"><a href="#H6" class="headerlink" title="H6"></a>H6</h6><p>Emphasis, aka italics, with <em>asterisks</em> or <em>underscores</em>.</p>
+<p>Strong emphasis, aka bold, with <strong>asterisks</strong> or <strong>underscores</strong>.</p>
+<p>Combined emphasis with <strong>asterisks and <em>underscores</em></strong>.</p>
+<p>Strikethrough uses two tildes. <del>Scratch this.</del></p>
+<ol>
+<li>First ordered list item</li>
+<li>Another item<br>⋅⋅* Unordered sub-list. </li>
+<li>Actual numbers don’t matter, just that it’s a number<br>⋅⋅1. Ordered sub-list</li>
+<li>And another item.</li>
+</ol>
+<p>⋅⋅⋅You can have properly indented paragraphs within list items. Notice the blank line above, and the leading spaces (at least one, but we’ll use three here to also align the raw Markdown).</p>
+<p>⋅⋅⋅To have a line break without a paragraph, you will need to use two trailing spaces.⋅⋅<br>⋅⋅⋅Note that this line is separate, but within the same paragraph.⋅⋅<br>⋅⋅⋅(This is contrary to the typical GFM line break behaviour, where trailing spaces are not required.)</p>
+<ul>
+<li>Unordered list can use asterisks</li>
+</ul>
+<ul>
+<li>Or minuses</li>
+</ul>
+<ul>
+<li>Or pluses</li>
+</ul>
+<p><a href="https://www.google.com" target="_blank" rel="external">I’m an inline-style link</a></p>
+<p><a href="https://www.google.com" title="Google&#39;s Homepage" target="_blank" rel="external">I’m an inline-style link with title</a></p>
+<p><a href="https://www.mozilla.org" target="_blank" rel="external">I’m a reference-style link</a></p>
+<p><a href="../blob/master/LICENSE">I’m a relative reference to a repository file</a></p>
+<p><a href="http://slashdot.org" target="_blank" rel="external">You can use numbers for reference-style link definitions</a></p>
+<p>Or leave it empty and use the <a href="http://www.reddit.com" target="_blank" rel="external">link text itself</a>.</p>
+<p>URLs and URLs in angle brackets will automatically get turned into links.<br><a href="http://www.example.com" target="_blank" rel="external">http://www.example.com</a> or <a href="http://www.example.com" target="_blank" rel="external">http://www.example.com</a> and sometimes<br>example.com (but not on Github, for example).</p>
+<p>Some text to show that the reference links can follow later.</p>
+<pre><code class="javascript">var s = &quot;JavaScript syntax highlighting&quot;;
+alert(s);
+</code></pre>
+<pre><code class="python">s = &quot;Python syntax highlighting&quot;
+print s
+</code></pre>
+<pre><code>No language indicated, so no syntax highlighting. 
+But let&#39;s throw in a &lt;b&gt;tag&lt;/b&gt;.
+</code></pre><table>
+<thead>
+<tr>
+<th>Tables</th>
+<th style="text-align:center">Are</th>
+<th style="text-align:right">Cool</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>col 3 is</td>
+<td style="text-align:center">right-aligned</td>
+<td style="text-align:right">$1600</td>
+</tr>
+<tr>
+<td>col 2 is</td>
+<td style="text-align:center">centered</td>
+<td style="text-align:right">$12</td>
+</tr>
+<tr>
+<td>zebra stripes</td>
+<td style="text-align:center">are neat</td>
+<td style="text-align:right">$1</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Blockquotes are very handy in email to emulate reply text.<br>This line is part of the same quote.</p>
+</blockquote>
+<p>Quote break.</p>
+<blockquote>
+<p>This is a very long line that will still be quoted properly when it wraps. Oh boy let’s keep writing to make sure this is long enough to actually wrap for everyone. Oh, you can <em>put</em> <strong>Markdown</strong> into a blockquote. </p>
+</blockquote>
+<p>Three or more…</p>
+<hr>
+<p>Hyphens</p>
+<hr>
+<p>Asterisks</p>
+<hr>
+<p>Here’s our logo (hover to see the title text):</p>
+<p>Inline-style:<br><img src="https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png" alt="alt text" title="Logo Title Text 1"></p>
+<p>Reference-style:<br><img src="https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png" alt="alt text" title="Logo Title Text 2"></p>
+]]></content>
+      
+        
+    </entry>
+    
+  
+  
+</search>
