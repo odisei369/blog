@@ -1,0 +1,12 @@
+languageCode = 'en'
+languageName = 'English'
+weight = 1
+title = 'Ilya Piatrenka'
+
+[params.author]
+  name = 'Ilya Piatrenka'
+  headline = 'iOS Developer'
+  bio = 'Senior iOS developer writing about Swift, security, architecture, and mobile engineering.'
+  links = [
+    { github = 'https://github.com/odisei369' },
+  ]

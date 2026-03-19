@@ -1,0 +1,34 @@
+colorScheme = 'blowfish'
+defaultAppearance = 'dark'
+autoSwitchAppearance = true
+
+enableSearch = true
+enableCodeCopy = true
+
+mainSections = ['posts']
+# robots = ''
+
+[header]
+  layout = 'basic'
+
+[footer]
+  showCopyright = true
+  showThemeAttribution = false
+
+[homepage]
+  layout = 'profile'
+  homepageImage = ''
+  showRecent = true
+  showRecentItems = 5
+
+[article]
+  showDate = true
+  showDateUpdated = true
+  showAuthor = true
+  showReadingTime = true
+  showTableOfContents = true
+  showTaxonomies = true
+  showWordCount = false
+  showSummary = true
+  showComments = false
+  showPagination = true
