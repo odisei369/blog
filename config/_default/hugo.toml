@@ -6,6 +6,7 @@ enableRobotsTXT = true
 [taxonomies]
   tag = 'tags'
   category = 'categories'
+  series = 'series'
 
 [sitemap]
   changefreq = 'daily'
