@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Nest body - woven brown bowl shape -->
+  <ellipse cx="32" cy="42" rx="24" ry="14" fill="#7c6f64" />
+  <ellipse cx="32" cy="42" rx="20" ry="11" fill="#504945" />
+  <ellipse cx="32" cy="40" rx="16" ry="8" fill="#3c3836" />
+  <!-- Twigs texture on nest rim -->
+  <path d="M10 40 Q18 34 26 38" stroke="#a89984" stroke-width="1.5" fill="none" />
+  <path d="M38 38 Q46 34 54 40" stroke="#a89984" stroke-width="1.5" fill="none" />
+  <path d="M12 44 Q22 38 32 42" stroke="#bdae93" stroke-width="1" fill="none" />
+  <path d="M32 42 Q42 38 52 44" stroke="#bdae93" stroke-width="1" fill="none" />
+  <!-- Three eggs in the nest -->
+  <ellipse cx="24" cy="38" rx="5" ry="6.5" fill="#ebdbb2" transform="rotate(-8 24 38)" />
+  <ellipse cx="32" cy="37" rx="5" ry="6.5" fill="#fbf1c7" />
+  <ellipse cx="40" cy="38" rx="5" ry="6.5" fill="#ebdbb2" transform="rotate(8 40 38)" />
+  <!-- Small speckles on eggs -->
+  <circle cx="23" cy="36" r="0.8" fill="#a89984" />
+  <circle cx="25" cy="39" r="0.6" fill="#a89984" />
+  <circle cx="31" cy="35" r="0.7" fill="#bdae93" />
+  <circle cx="33" cy="38" r="0.6" fill="#bdae93" />
+  <circle cx="39" cy="36" r="0.8" fill="#a89984" />
+  <circle cx="41" cy="39" r="0.6" fill="#a89984" />
+  <!-- Small leaf accent -->
+  <path d="M48 30 Q52 26 50 22 Q46 26 48 30Z" fill="#8ec07c" />
+  <path d="M48 30 Q50 26" stroke="#689d6a" stroke-width="0.8" fill="none" />
+</svg>
