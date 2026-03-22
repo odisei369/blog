@@ -10,35 +10,55 @@ summary: "A duck and a developer set up a TLS/mTLS test server to finally unders
 
 *A duck enters a dark room.*
 
-> **🦆 Nestor:** Hello? Who's there?
+{{% dialog "🦆 Nestor" %}}
+Hello? Who's there?
+{{% /dialog %}}
 
 ...Who's asking?
 
-> **🦆 Nestor:** It's me, duck Nestor!
+{{% dialog "🦆 Nestor" %}}
+It's me, duck Nestor!
+{{% /dialog %}}
 
 I don't know that. You *say* you're Nestor, but how can I be sure? Anyone could waddle in here and claim to be a duck. Do you have... proof?
 
-> **🦆 Nestor:** Proof? Like... my library card?
+{{% dialog "🦆 Nestor" %}}
+Proof? Like... my library card?
+{{% /dialog %}}
 
 More like a certificate. Signed by someone we both trust.
 
 And that, right there, is the entire problem that TLS solves.
 
-> **🦆 Nestor:** Wait, TLS? I thought they use SSL for this. The library is literally called OpenSSL. I'm confused.
+{{% dialog "🦆 Nestor" %}}
+Wait, TLS? I thought they use SSL for this. The library is literally called OpenSSL. I'm confused.
+{{% /dialog %}}
 
 *An owl descends from a high shelf, adjusts spectacles, and opens a very thick book.*
 
-> **🦉 Menthor:** Ah, a common misconception. Allow me to clarify. *Ahem.* SSL — Secure Sockets Layer — was the original protocol, first published by Netscape in 1995. Versions 2.0 and 3.0 served the early web faithfully. However, in 1999, the IETF standardized a successor under a new name: TLS — Transport Layer Security. TLS 1.0 was, in essence, SSL 3.1 wearing a different hat.
+{{% dialog "🦉 Menthor" %}}
+Ah, a common misconception. Allow me to clarify. *Ahem.* SSL — Secure Sockets Layer — was the original protocol, first published by Netscape in 1995. Versions 2.0 and 3.0 served the early web faithfully. However, in 1999, the IETF standardized a successor under a new name: TLS — Transport Layer Security. TLS 1.0 was, in essence, SSL 3.1 wearing a different hat.
+{{% /dialog %}}
 
-> **🦆 Nestor:** So... they're the same thing?
+{{% dialog "🦆 Nestor" %}}
+So... they're the same thing?
+{{% /dialog %}}
 
-> **🦉 Menthor:** *Closes book. Opens a thicker book.* They are *not* the same thing, but they are the same *lineage*. SSL is the ancestor. TLS is the living descendant. All versions of SSL have been deprecated — SSL 3.0 was officially retired in 2015. What the world runs today is TLS 1.2 and TLS 1.3. When people say "SSL," they almost always mean TLS. It is, if you will, a ghost name — haunting libraries, documentation, and casual conversation long after the protocol itself has passed.
+{{% dialog "🦉 Menthor" %}}
+*Closes book. Opens a thicker book.* They are *not* the same thing, but they are the same *lineage*. SSL is the ancestor. TLS is the living descendant. All versions of SSL have been deprecated — SSL 3.0 was officially retired in 2015. What the world runs today is TLS 1.2 and TLS 1.3. When people say "SSL," they almost always mean TLS. It is, if you will, a ghost name — haunting libraries, documentation, and casual conversation long after the protocol itself has passed.
+{{% /dialog %}}
 
-> **🦆 Nestor:** And OpenSSL?
+{{% dialog "🦆 Nestor" %}}
+And OpenSSL?
+{{% /dialog %}}
 
-> **🦉 Menthor:** Named in an era when SSL was the word on everyone's beak. The library supports modern TLS perfectly well. It simply never updated its name. Much like how we still say "dial" a phone number, or "rewind" a video. Language, dear Nestor, has a longer memory than technology.
+{{% dialog "🦉 Menthor" %}}
+Named in an era when SSL was the word on everyone's beak. The library supports modern TLS perfectly well. It simply never updated its name. Much like how we still say "dial" a phone number, or "rewind" a video. Language, dear Nestor, has a longer memory than technology.
+{{% /dialog %}}
 
-> **🦆 Nestor:** Okay but for real, what even is TLS then?
+{{% dialog "🦆 Nestor" %}}
+Okay but for real, what even is TLS then?
+{{% /dialog %}}
 
 The short version: when your app connects to `https://api.example.com`, TLS is the protocol that makes the "S" in HTTPS work. It does two things:
 
@@ -51,11 +71,15 @@ That's regular TLS. One-way trust: the client verifies the server.
 
 **Mutual TLS (mTLS)** flips the script: the server *also* demands a certificate from the client. Both sides prove who they are. This is used in banking apps (device binding), enterprise MDM, and microservice-to-microservice communication.
 
-> **🦆 Nestor:** So how are we going to learn this?
+{{% dialog "🦆 Nestor" %}}
+So how are we going to learn this?
+{{% /dialog %}}
 
 We'll build a tiny Go server with two modes: one that does regular TLS, and one that requires mTLS. Then we'll poke at it with `openssl` and `curl` to see exactly what's different. Later, in Part 2, we'll connect from an iOS app.
 
-> **🦆 Nestor:** "Poke at it." Finally something I understand. Back on the pond we poke things with sticks all the time. Logs, frogs, suspicious breadcrumbs... You learn a lot about something by poking it.
+{{% dialog "🦆 Nestor" %}}
+"Poke at it." Finally something I understand. Back on the pond we poke things with sticks all the time. Logs, frogs, suspicious breadcrumbs... You learn a lot about something by poking it.
+{{% /dialog %}}
 
 Khm... yeah, kind of. Except our stick is `curl` and the thing we're poking will poke back with a certificate. Anyway — here's the setup:
 
@@ -69,7 +93,9 @@ Port 8445 exists for later — when our iOS app generates a key in the Secure En
 
 ## Generating certificates
 
-> **🦆 Nestor:** Wait, so we need certificates to connect, but we need a server to test them, but the server needs certificates to run... Is this a chicken-and-egg thing?
+{{% dialog "🦆 Nestor" %}}
+Wait, so we need certificates to connect, but we need a server to test them, but the server needs certificates to run... Is this a chicken-and-egg thing?
+{{% /dialog %}}
 
 More of an egg-and-egg thing. Everything needs a certificate, and every certificate needs a CA. So we start with the CA — the chicken that lays all the eggs. We need three things:
 
@@ -146,7 +172,9 @@ openssl pkcs12 -export -out "$OUT/client.p12" \
     -passout pass:demo
 ```
 
-> **🦆 Nestor:** That's a lot of flags. I don't like flags. Last time I saw that many flags was at a golf course, and I didn't like that place either.
+{{% dialog "🦆 Nestor" %}}
+That's a lot of flags. I don't like flags. Last time I saw that many flags was at a golf course, and I didn't like that place either.
+{{% /dialog %}}
 
 Each certificate follows the same pattern: **generate a key → create a CSR (Certificate Signing Request) → have the CA sign it**.
 
@@ -187,7 +215,9 @@ out/
 
 ## The Go server
 
-> **🦆 Nestor:** That's a lot of crypto setup for a "simple" server.
+{{% dialog "🦆 Nestor" %}}
+That's a lot of crypto setup for a "simple" server.
+{{% /dialog %}}
 
 Fair. But the server itself is actually short. Go's standard library has everything we need — no external dependencies. Here's the full thing:
 
@@ -339,7 +369,9 @@ Run it with `go run main.go` from the `backend/` directory.
 
 ## Testing with curl
 
-> **🦆 Nestor:** Okay it's running. Now what?
+{{% dialog "🦆 Nestor" %}}
+Okay it's running. Now what?
+{{% /dialog %}}
 
 Now we poke at it. Let's start with `curl`.
 
@@ -365,7 +397,9 @@ curl: (60) SSL certificate problem: unable to get local issuer certificate
 
 Without `--cacert`, curl doesn't trust our self-signed CA. This is exactly what happens when an iOS app connects to a server with an unknown certificate — the system rejects it because it can't verify the chain of trust.
 
-> **🦆 Nestor:** So `--cacert` is like telling curl "I personally vouch for this CA"?
+{{% dialog "🦆 Nestor" %}}
+So `--cacert` is like telling curl "I personally vouch for this CA"?
+{{% /dialog %}}
 
 Exactly. In a real app, the system trust store already contains the well-known CAs (Let's Encrypt, DigiCert, etc.). But for our self-signed setup, we need to explicitly say "trust this CA."
 
@@ -395,7 +429,9 @@ $ curl --cacert out/ca.pem \
 
 Now *both* sides authenticated. The server verified our client certificate was signed by the trusted CA, extracted the Common Name (`demo-iphone`), and included it in the response.
 
-> **🦆 Nestor:** So the server knows exactly which client is connecting, not just that "someone with a valid token" is connecting?
+{{% dialog "🦆 Nestor" %}}
+So the server knows exactly which client is connecting, not just that "someone with a valid token" is connecting?
+{{% /dialog %}}
 
 Right. And the identity is proven at the transport level — before any HTTP request is even sent. No tokens to steal, no passwords to phish. The private key never leaves the client.
 
@@ -468,7 +504,9 @@ The connection will fail because the server requires a client certificate and we
 
 ## What's next
 
-> **🦆 Nestor:** So this is what the server side looks like. What about the phone?
+{{% dialog "🦆 Nestor" %}}
+So this is what the server side looks like. What about the phone?
+{{% /dialog %}}
 
 Next time — we connect from an iOS app. That's where it gets interesting:
 
