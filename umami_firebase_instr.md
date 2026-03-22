@@ -2,125 +2,78 @@
 
 ## Part 1: Umami on Proxmox NAS
 
-### 1. Create an LXC container on Proxmox
+### 1. Create Umami LXC with tteck script
 
-In the Proxmox web UI:
-
-1. Download a Debian 12 (or Ubuntu 22.04) container template if you don't have one
-2. Create a new CT (container):
-   - Template: Debian 12
-   - Disk: 8 GB is plenty
-   - Memory: 512 MB (1 GB if generous)
-   - CPU: 1 core
-   - Network: DHCP or static IP on your LAN
-3. Start the container and open a shell
-
-### 2. Install Docker inside the LXC
+From the Proxmox host shell:
 
 ```bash
-apt update && apt upgrade -y
-apt install -y curl ca-certificates gnupg
-
-# Add Docker repo
-install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-chmod a+r /etc/apt/keyrings/docker.asc
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
-
-apt update
-apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+bash -c "$(wget -qLO - https://github.com/tteck/Proxmox/raw/main/ct/umami.sh)"
 ```
 
-> **Note:** If Docker fails to start in an unprivileged LXC, you may need to enable nesting. In Proxmox: CT > Options > Features > check "Nesting".
+Follow the prompts. The script creates a dedicated LXC with Umami + PostgreSQL pre-configured.
 
-### 3. Deploy Umami with Docker Compose
+Once done, note the container's IP address (e.g., `10.0.0.50`). Umami runs on port `3000`.
+Default login: `admin` / `umami`.
+
+### 2. Create Cloudflare Tunnel LXC with tteck script
+
+A dedicated LXC for `cloudflared` keeps concerns separated — Umami stays untouched, and this tunnel can serve any future services on your LAN.
+
+From the Proxmox host shell:
 
 ```bash
-mkdir -p /opt/umami && cd /opt/umami
+bash -c "$(wget -qLO - https://github.com/tteck/Proxmox/raw/main/ct/cloudflared.sh)"
 ```
 
-Create `docker-compose.yml`:
+Follow the prompts. The script creates a lightweight LXC with `cloudflared` pre-installed.
 
-```yaml
-services:
-  umami:
-    image: ghcr.io/umami-software/umami:latest
-    ports:
-      - "3000:3000"
-    environment:
-      DATABASE_URL: postgresql://umami:umami@db:5432/umami
-      APP_SECRET: CHANGE_THIS_TO_A_RANDOM_STRING
-    depends_on:
-      db:
-        condition: service_healthy
-    init: true
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "curl http://localhost:3000/api/heartbeat"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: umami
-      POSTGRES_USER: umami
-      POSTGRES_PASSWORD: umami
-    volumes:
-      - umami-db-data:/var/lib/postgresql/data
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  umami-db-data:
-```
-
-Generate a random APP_SECRET:
-
-```bash
-openssl rand -hex 32
-```
-
-Start it:
-
-```bash
-docker compose up -d
-```
-
-Umami is now running at `http://<container-ip>:3000`. Default login: `admin` / `umami`.
-
-### 4. Expose via Cloudflare Tunnel
-
-On your Cloudflare dashboard:
+### 3. Create the tunnel on Cloudflare
 
 1. Go to **Zero Trust > Networks > Tunnels**
-2. Create a new tunnel, name it (e.g., `nas-tunnel`)
-3. Install the connector in your LXC:
+2. Click **Create a tunnel**
+3. Name it (e.g., `nas-tunnel`)
+4. Copy the tunnel token
+
+In the cloudflared LXC shell, install the token:
 
 ```bash
-curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-dpkg -i cloudflared.deb
 cloudflared service install <YOUR_TUNNEL_TOKEN>
 ```
 
-4. In Cloudflare dashboard, add a public hostname:
-   - Subdomain: `umami` (or whatever you want)
-   - Domain: your domain (e.g., `piatrenka.com`)
-   - Service: `http://localhost:3000`
+Add a public hostname in the Cloudflare dashboard:
+- Subdomain: `umami` (or your choice)
+- Domain: your domain (e.g., `piatrenka.com`)
+- Service: `http://10.0.0.50:3000` (the Umami LXC's LAN IP)
 
-Umami is now accessible at `https://umami.piatrenka.com` (or whatever subdomain you chose).
+### 4. Block everything except tracking endpoints with WAF
+
+The tunnel exposes all of Umami by default. Use a Cloudflare WAF rule to only allow what the blog needs.
+
+1. Go to your domain in Cloudflare dashboard
+2. Navigate to **Security > WAF > Custom rules**
+3. Create a rule:
+   - **Rule name:** `Block Umami dashboard`
+   - **Expression:**
+     ```
+     (http.host eq "umami.piatrenka.com" and not http.request.uri.path eq "/script.js" and not http.request.uri.path eq "/api/send")
+     ```
+   - **Action:** **Block**
+4. Click **Deploy**
+
+Result:
+- `umami.piatrenka.com/script.js` — allowed (blog visitors load the tracking script)
+- `umami.piatrenka.com/api/send` — allowed (blog visitors send analytics data)
+- Everything else — blocked (dashboard, login, API endpoints all return 403)
+
+To access the dashboard, use Umami directly on your LAN at `http://10.0.0.50:3000`.
 
 ### 5. Configure Umami
 
-1. Log in at your Umami URL (change the default password!)
-2. Go to **Settings > Websites > Add website**
-3. Enter your blog URL (e.g., `https://piatrenka.com`)
-4. Copy the **Website ID** (a UUID like `a1b2c3d4-e5f6-...`)
+1. Access the dashboard on your LAN: `http://10.0.0.50:3000`
+2. Change the default password immediately
+3. Go to **Settings > Websites > Add website**
+4. Enter your blog URL (e.g., `https://piatrenka.com`)
+5. Copy the **Website ID** (a UUID like `a1b2c3d4-e5f6-...`)
 
 ### 6. Update blog config
 
@@ -239,5 +192,6 @@ In `config/_default/params.toml`, replace the placeholder values with your Fireb
 
 **Firestore (Spark plan):** 50K reads/day, 20K writes/day, 1 GB storage.
 **Anonymous Auth:** 50K monthly active users.
+**Cloudflare WAF custom rules:** Free plan includes 5 custom rules.
 
 For a personal blog, these limits are very generous.
