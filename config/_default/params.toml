@@ -1,4 +1,4 @@
-colorScheme = 'blowfish'
+colorScheme = 'gruvbox'
 defaultAppearance = 'dark'
 autoSwitchAppearance = true
 
