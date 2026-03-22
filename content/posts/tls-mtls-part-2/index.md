@@ -8,7 +8,9 @@ series_order: 2
 summary: "Nestor and the developer teach an iPhone to speak TLS. A crow shows up uninvited."
 ---
 
-> **🦆 Nestor:** Last time we built a server and poked it with sticks. When do we build the phone thing?
+{{% dialog "🦆 Nestor" %}}
+Last time we built a server and poked it with sticks. When do we build the phone thing?
+{{% /dialog %}}
 
 Right now. We have a Go server running three ports — TLS on 8443, mTLS on 8444, provisioning on 8445. Time to write an iOS app that connects to it.
 
@@ -20,23 +22,33 @@ We're targeting iOS 15. Not iOS 18. Not even iOS 17 with all its shiny new `@Obs
 
 *A loud flutter. Something dark lands on the monitor.*
 
-> **🐦‍⬛ Autolycus:** Shiny? Someone said shiny? Where?
+{{% dialog "🐦‍⬛ Autolycus" %}}
+Shiny? Someone said shiny? Where?
+{{% /dialog %}}
 
 ...Who are you?
 
-> **🐦‍⬛ Autolycus:** Autolycus. Crow. Connoisseur of interesting things. Especially things that people try to keep locked away. *Tilts head.* Did you say shiny new APIs?
+{{% dialog "🐦‍⬛ Autolycus" %}}
+Autolycus. Crow. Connoisseur of interesting things. Especially things that people try to keep locked away. *Tilts head.* Did you say shiny new APIs?
+{{% /dialog %}}
 
 We said we're *not* using them. We're targeting iOS 15 because we have a jailbroken iPhone 6S, and we want to test how secure our app actually is on a real compromised device.
 
-> **🐦‍⬛ Autolycus:** Jailbroken? *Eyes widen.* Oh, I like where this is going.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+Jailbroken? *Eyes widen.* Oh, I like where this is going.
+{{% /dialog %}}
 
 You'll get your turn later. For now, sit on the shelf and watch.
 
-> **🐦‍⬛ Autolycus:** *Hops to a higher shelf. Watches intently.*
+{{% dialog "🐦‍⬛ Autolycus" %}}
+*Hops to a higher shelf. Watches intently.*
+{{% /dialog %}}
 
 So — iOS 15 means `ObservableObject` instead of `@Observable`, `NavigationView` instead of `NavigationStack`, and no `#Preview` macro. Old school. Everything still works, the code is just a bit more verbose. Worth the tradeoff for what comes in Part 3.
 
-> **🦆 Nestor:** What comes in Part 3?
+{{% dialog "🦆 Nestor" %}}
+What comes in Part 3?
+{{% /dialog %}}
 
 We'll get there. Let's build first.
 
@@ -57,7 +69,9 @@ Here's the thing about iOS networking that most tutorials gloss over: when you c
 
 That question arrives as an **authentication challenge**, delivered to your `URLSessionDelegate`.
 
-> **🦆 Nestor:** So the delegate is like... a bouncer?
+{{% dialog "🦆 Nestor" %}}
+So the delegate is like... a bouncer?
+{{% /dialog %}}
 
 More like a customs officer. The server shows its passport (certificate), and the delegate decides whether to let the connection through.
 
@@ -143,9 +157,13 @@ enum CertificateHelper {
 
 `SecTrustSetAnchorCertificates` tells iOS: "Here's my list of trusted CAs." And `SecTrustSetAnchorCertificatesOnly(serverTrust, true)` adds: "And *only* these. Don't fall back to the system trust store." Without that second call, iOS would also accept certificates signed by any public CA — not what we want.
 
-> **🦉 Menthor:** *Opens a book.* A note on `SecTrustEvaluateWithError`. It performs the full chain validation: signature verification, expiry check, hostname matching against the Subject Alternative Name, Key Usage constraints, and Extended Key Usage. If any of these fail, it returns `false` with an error describing which check failed. It is, shall we say, thorough.
+{{% dialog "🦉 Menthor" %}}
+*Opens a book.* A note on `SecTrustEvaluateWithError`. It performs the full chain validation: signature verification, expiry check, hostname matching against the Subject Alternative Name, Key Usage constraints, and Extended Key Usage. If any of these fail, it returns `false` with an error describing which check failed. It is, shall we say, thorough.
+{{% /dialog %}}
 
-> **🦆 Nestor:** Learned that the hard way, didn't we?
+{{% dialog "🦆 Nestor" %}}
+Learned that the hard way, didn't we?
+{{% /dialog %}}
 
 We did. If your CA certificate doesn't have `keyUsage=keyCertSign`, iOS will reject it with "certificate is not trusted" — even though the signature is mathematically valid. And if your server certificate doesn't have `extendedKeyUsage=serverAuth`, you get "certificate is not permitted for this usage." Both pass just fine with `curl`. iOS is stricter.
 
@@ -218,7 +236,9 @@ That's it. The delegate receives the challenge, evaluates the server certificate
 ✓ Response: Hello from TLS server
 ```
 
-> **🦆 Nestor:** That's... not that much code.
+{{% dialog "🦆 Nestor" %}}
+That's... not that much code.
+{{% /dialog %}}
 
 Most of the work is in understanding *what* each piece does. The code itself is short.
 
@@ -253,11 +273,15 @@ static func loadIdentity(from p12Name: String, password: String) -> SecIdentity?
 
 `SecPKCS12Import` takes the raw `.p12` data and the password, and gives back a `SecIdentity` — an opaque object that holds both the private key and the certificate. We'll hand this to the URL session when the server asks "who are you?"
 
-> **🐦‍⬛ Autolycus:** *From the shelf.* Did he just hardcode the password as `"demo"`?
+{{% dialog "🐦‍⬛ Autolycus" %}}
+*From the shelf.* Did he just hardcode the password as `"demo"`?
+{{% /dialog %}}
 
 It's a demo. Hence the name.
 
-> **🐦‍⬛ Autolycus:** *Takes notes.*
+{{% dialog "🐦‍⬛ Autolycus" %}}
+*Takes notes.*
+{{% /dialog %}}
 
 Now the delegate. It's the same as the TLS version, but with one extra case:
 
@@ -336,7 +360,9 @@ The app has a "Without Cert" button that attempts the same connection but skips 
 
 The server trust check passes — we still trust the server. But then the server asks for *our* certificate, we have nothing to show, and the handshake dies. The server log shows `TLS handshake error` — it never even gets to the HTTP layer.
 
-> **🦆 Nestor:** So mTLS is all-or-nothing? Either both sides authenticate, or nobody talks?
+{{% dialog "🦆 Nestor" %}}
+So mTLS is all-or-nothing? Either both sides authenticate, or nobody talks?
+{{% /dialog %}}
 
 Exactly. There's no "let me in without a badge" option. That's the point.
 
@@ -374,12 +400,18 @@ One extra branch. That's mTLS on iOS.
 
 We have an iOS app that does both TLS and mTLS. The server verifies the client. The client verifies the server. Mutual trust, transport-level authentication, no tokens or passwords involved.
 
-> **🦆 Nestor:** So... we're done? Ship it?
+{{% dialog "🦆 Nestor" %}}
+So... we're done? Ship it?
+{{% /dialog %}}
 
-> **🐦‍⬛ Autolycus:** *Perks up from the shelf.* Yes. Definitely ship it. Looks very secure. Nothing to worry about. *Preens feathers innocently.*
+{{% dialog "🐦‍⬛ Autolycus" %}}
+*Perks up from the shelf.* Yes. Definitely ship it. Looks very secure. Nothing to worry about. *Preens feathers innocently.*
+{{% /dialog %}}
 
 ...
 
-> **🦆 Nestor:** Why is the crow smiling?
+{{% dialog "🦆 Nestor" %}}
+Why is the crow smiling?
+{{% /dialog %}}
 
 Good question. See you in Part 3.
