@@ -32,3 +32,18 @@ mainSections = ['posts']
   showSummary = true
   showComments = false
   showPagination = true
+  showViews = true
+
+[umamiAnalytics]
+  websiteid = "REPLACE_WITH_WEBSITE_ID"
+  domain = "REPLACE_WITH_UMAMI_DOMAIN"
+  enableTrackEvent = true
+
+[firebase]
+  apiKey = "REPLACE"
+  authDomain = "REPLACE"
+  projectId = "REPLACE"
+  storageBucket = "REPLACE"
+  messagingSenderId = "REPLACE"
+  appId = "REPLACE"
+  measurementId = "REPLACE"
