@@ -10,37 +10,55 @@ summary: "A crow breaks into the iOS app we built. Extracts the certificate, hoo
 
 *The crow hops down from the shelf.*
 
-> **🐦‍⬛ Autolycus:** My turn.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+My turn.
+{{% /dialog %}}
 
 In Part 2, we built an iOS app with mTLS. The server verified the client. The client verified the server. Mutual trust, transport-level authentication. We shipped it.
 
 And then the crow smiled.
 
-> **🐦‍⬛ Autolycus:** I've been watching from that shelf for a while now. Taking notes. You bundled a `.p12` file in the app. Hardcoded the password. Stored the identity in the Keychain with default flags. All very standard. All very... *accessible*.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+I've been watching from that shelf for a while now. Taking notes. You bundled a `.p12` file in the app. Hardcoded the password. Stored the identity in the Keychain with default flags. All very standard. All very... *accessible*.
+{{% /dialog %}}
 
-> **🦆 Nestor:** Accessible? That's a good thing, right?
+{{% dialog "🦆 Nestor" %}}
+Accessible? That's a good thing, right?
+{{% /dialog %}}
 
-> **🐦‍⬛ Autolycus:** Depends on who's accessing it.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+Depends on who's accessing it.
+{{% /dialog %}}
 
 Today, Autolycus is going to break into our app. Three attacks, each targeting a different layer. By the end, he'll have stolen our client identity and used it to impersonate our iPhone from his laptop.
 
 Everything we're about to do requires a **jailbroken device** — an iPhone where the usual security boundaries (sandbox, code signing enforcement, filesystem protection) have been weakened. We're using an iPhone 6S running iOS 15.8.1, jailbroken with palera1n. If you want to follow along, you'll need a jailbroken device with SSH access.
 
-> **🦉 Menthor:** *Opens a rather alarming book.* A note before we proceed. What follows is a security demonstration on hardware you own. The techniques shown here — dynamic instrumentation, filesystem inspection, Keychain extraction — are standard tools of the iOS security research trade. They are used by penetration testers, security auditors, and Apple's own security team. Understanding the attack is a prerequisite for understanding the defense.
+{{% dialog "🦉 Menthor" %}}
+*Opens a rather alarming book.* A note before we proceed. What follows is a security demonstration on hardware you own. The techniques shown here — dynamic instrumentation, filesystem inspection, Keychain extraction — are standard tools of the iOS security research trade. They are used by penetration testers, security auditors, and Apple's own security team. Understanding the attack is a prerequisite for understanding the defense.
+{{% /dialog %}}
 
-> **🦆 Nestor:** So we're breaking our own stuff to learn how to fix it?
+{{% dialog "🦆 Nestor" %}}
+So we're breaking our own stuff to learn how to fix it?
+{{% /dialog %}}
 
 Exactly. And Autolycus is going to show us how.
 
 ## What is Frida?
 
-> **🦆 Nestor:** Before we start breaking things — what's Frida?
+{{% dialog "🦆 Nestor" %}}
+Before we start breaking things — what's Frida?
+{{% /dialog %}}
 
-> **🦉 Menthor:** Frida is a dynamic instrumentation toolkit. It allows you to inject JavaScript into running processes and interact with them in real time. On iOS, this means you can hook Objective-C methods, inspect arguments, modify return values, and observe the internal behavior of any app — all without recompiling it.
+{{% dialog "🦉 Menthor" %}}
+Frida is a dynamic instrumentation toolkit. It allows you to inject JavaScript into running processes and interact with them in real time. On iOS, this means you can hook Objective-C methods, inspect arguments, modify return values, and observe the internal behavior of any app — all without recompiling it.
+{{% /dialog %}}
 
 Think of it this way: our app is a building with locked doors and security cameras. Frida lets you walk through the walls, watch the cameras' feeds, and replace the locks — while the building is in use.
 
-> **🐦‍⬛ Autolycus:** Beautiful tool. Someone just leaves the blueprints lying around (that's the Objective-C runtime), and Frida lets you read them.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+Beautiful tool. Someone just leaves the blueprints lying around (that's the Objective-C runtime), and Frida lets you read them.
+{{% /dialog %}}
 
 The key insight is that **Frida doesn't exploit a vulnerability in the app**. It exploits the nature of the Objective-C runtime — the same machinery that makes UIKit, KVO, and the entire Cocoa ecosystem work. On a jailbroken device, there's nothing stopping you from attaching to any process and using that machinery.
 
@@ -117,11 +135,17 @@ Good. We're in.
 
 ## Attack 1: The P12 heist
 
-> **🐦‍⬛ Autolycus:** Let's start with the obvious one. You bundled a `.p12` file in the app. A file. In the app. Just... sitting there.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+Let's start with the obvious one. You bundled a `.p12` file in the app. A file. In the app. Just... sitting there.
+{{% /dialog %}}
 
-> **🦆 Nestor:** But it's inside the app! It's signed! You can't just—
+{{% dialog "🦆 Nestor" %}}
+But it's inside the app! It's signed! You can't just—
+{{% /dialog %}}
 
-> **🐦‍⬛ Autolycus:** Watch me.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+Watch me.
+{{% /dialog %}}
 
 ### Finding the app
 
@@ -171,7 +195,9 @@ issuer=CN = TLSDemo CA, O = Demo
 ]
 ```
 
-> **🐦‍⬛ Autolycus:** `CN=demo-iphone`. That's the client identity. Shall I prove it works?
+{{% dialog "🐦‍⬛ Autolycus" %}}
+`CN=demo-iphone`. That's the client identity. Shall I prove it works?
+{{% /dialog %}}
 
 ### Using the stolen identity
 
@@ -189,15 +215,23 @@ curl --cacert certs/out/ca.pem \
 ]
 ```
 
-> **🦆 Nestor:** ...
+{{% dialog "🦆 Nestor" %}}
+...
+{{% /dialog %}}
 
-> **🐦‍⬛ Autolycus:** The server thinks I'm the iPhone. Because I have its certificate and private key. I *am* the iPhone now, cryptographically speaking.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+The server thinks I'm the iPhone. Because I have its certificate and private key. I *am* the iPhone now, cryptographically speaking.
+{{% /dialog %}}
 
-> **🦆 Nestor:** But — how? The app is signed! Apple verified it! Code signing is supposed to—
+{{% dialog "🦆 Nestor" %}}
+But — how? The app is signed! Apple verified it! Code signing is supposed to—
+{{% /dialog %}}
 
 ### Why this works
 
-> **🦉 Menthor:** *Adjusts spectacles.* This is a common misunderstanding. Let me explain what code signing actually does — and what it does not.
+{{% dialog "🦉 Menthor" %}}
+*Adjusts spectacles.* This is a common misunderstanding. Let me explain what code signing actually does — and what it does not.
+{{% /dialog %}}
 
 **Code signing protects integrity, not confidentiality.** When Apple signs an app (or when you sign it during development), the signature guarantees two things:
 
@@ -206,7 +240,9 @@ curl --cacert certs/out/ca.pem \
 
 What code signing does *not* do is **encrypt** the app's contents. The `.p12` file is bundled as a resource, like an image or a JSON file. It's right there in the app directory, readable by anything that can access the filesystem.
 
-> **🦉 Menthor:** On a non-jailbroken device, the **sandbox** prevents other apps from reading your app's bundle directory. But the sandbox is a software construct — it's enforced by the kernel through a set of policies. A jailbreak modifies those policies. Once the sandbox is gone, the filesystem is an open book.
+{{% dialog "🦉 Menthor" %}}
+On a non-jailbroken device, the **sandbox** prevents other apps from reading your app's bundle directory. But the sandbox is a software construct — it's enforced by the kernel through a set of policies. A jailbreak modifies those policies. Once the sandbox is gone, the filesystem is an open book.
+{{% /dialog %}}
 
 {{< mermaid >}}
 graph TD
@@ -228,11 +264,15 @@ graph TD
 
 The `.p12` file was always readable — the sandbox was just preventing anyone from looking. Remove the sandbox, and there's nothing left to protect it.
 
-> **🐦‍⬛ Autolycus:** Bundling a secret in an app bundle is like hiding a key inside a locked glass cabinet. The lock keeps honest people out. I just broke the glass.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+Bundling a secret in an app bundle is like hiding a key inside a locked glass cabinet. The lock keeps honest people out. I just broke the glass.
+{{% /dialog %}}
 
 ## Attack 2: Hooking the delegate
 
-> **🐦‍⬛ Autolycus:** The P12 was the easy prize. Now let's do something more interesting. Let's watch the app's TLS handshake from the inside.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+The P12 was the easy prize. Now let's do something more interesting. Let's watch the app's TLS handshake from the inside.
+{{% /dialog %}}
 
 This time, we're not stealing a file. We're injecting code into the running app process to observe what happens during the mTLS authentication challenge.
 
@@ -316,9 +356,13 @@ The `-f` flag tells Frida to **spawn** the app (launch it fresh) and pause it be
 ]
 ```
 
-> **🦆 Nestor:** You can see everything that happens inside our delegate?
+{{% dialog "🦆 Nestor" %}}
+You can see everything that happens inside our delegate?
+{{% /dialog %}}
 
-> **🐦‍⬛ Autolycus:** Everything. Every challenge, every argument, every decision. I can see the server asking for a client certificate. I can see the app loading the P12. I could even *modify* the completion handler — accept a different server, present a different identity, or just log the credential as it goes by.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+Everything. Every challenge, every argument, every decision. I can see the server asking for a client certificate. I can see the app loading the P12. I could even *modify* the completion handler — accept a different server, present a different identity, or just log the credential as it goes by.
+{{% /dialog %}}
 
 ### Going further: intercepting the credential
 
@@ -371,17 +415,25 @@ console.log("[✓] Credential interceptor active");
 ]
 ```
 
-> **🐦‍⬛ Autolycus:** I can see the `SecIdentity` object passing through. The private key, the certificate — the whole thing. Flowing right past me.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+I can see the `SecIdentity` object passing through. The private key, the certificate — the whole thing. Flowing right past me.
+{{% /dialog %}}
 
 ### Why this works
 
-> **🦉 Menthor:** The key to understanding this attack is the **Objective-C runtime**.
+{{% dialog "🦉 Menthor" %}}
+The key to understanding this attack is the **Objective-C runtime**.
+{{% /dialog %}}
 
-> **🦉 Menthor:** Swift classes that inherit from `NSObject` — as ours do, because `URLSessionDelegate` requires it — are registered in the Objective-C runtime. Every method call is dispatched dynamically through a function called `objc_msgSend`. It is a central switchboard: every message, every delegate callback, every protocol method passes through it.
+{{% dialog "🦉 Menthor" %}}
+Swift classes that inherit from `NSObject` — as ours do, because `URLSessionDelegate` requires it — are registered in the Objective-C runtime. Every method call is dispatched dynamically through a function called `objc_msgSend`. It is a central switchboard: every message, every delegate callback, every protocol method passes through it.
+{{% /dialog %}}
 
 This is not a weakness. It's the foundation of everything in Cocoa. It's what makes Interface Builder work. It's what makes Key-Value Observing work. It's what makes the responder chain work. The entire iOS framework relies on this level of dynamism.
 
-> **🦉 Menthor:** Frida exploits this by injecting a shared library (a dylib) into the target process. Once inside, it has full access to the Objective-C runtime — it can enumerate classes, list methods, read their implementations, and replace them with custom code. The `Interceptor.attach` call simply redirects the method's function pointer to a trampoline that calls your JavaScript first, then the original implementation.
+{{% dialog "🦉 Menthor" %}}
+Frida exploits this by injecting a shared library (a dylib) into the target process. Once inside, it has full access to the Objective-C runtime — it can enumerate classes, list methods, read their implementations, and replace them with custom code. The `Interceptor.attach` call simply redirects the method's function pointer to a trampoline that calls your JavaScript first, then the original implementation.
+{{% /dialog %}}
 
 {{< mermaid >}}
 sequenceDiagram
@@ -405,17 +457,25 @@ sequenceDiagram
     Frida-->>App: Return value
 {{< /mermaid >}}
 
-> **🦆 Nestor:** So the app doesn't even know it's being watched?
+{{% dialog "🦆 Nestor" %}}
+So the app doesn't even know it's being watched?
+{{% /dialog %}}
 
-> **🦉 Menthor:** Correct. The original method still runs. The arguments are unchanged. The return value is unchanged — unless the attacker decides to modify it. From the app's perspective, nothing happened. It is, to use a somewhat ominous metaphor, a perfect wiretap.
+{{% dialog "🦉 Menthor" %}}
+Correct. The original method still runs. The arguments are unchanged. The return value is unchanged — unless the attacker decides to modify it. From the app's perspective, nothing happened. It is, to use a somewhat ominous metaphor, a perfect wiretap.
+{{% /dialog %}}
 
-> **🐦‍⬛ Autolycus:** And the best part? This works on *any* Objective-C method. Not just ours. `SecPKCS12Import`? Hookable. `SecTrustEvaluateWithError`? Hookable. I could make your app trust any certificate I want.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+And the best part? This works on *any* Objective-C method. Not just ours. `SecPKCS12Import`? Hookable. `SecTrustEvaluateWithError`? Hookable. I could make your app trust any certificate I want.
+{{% /dialog %}}
 
 That's a real threat — an attacker could hook the trust evaluation to accept a malicious server certificate (a person-in-the-middle attack). But let's save that thought. One more attack to go.
 
 ## Attack 3: The Keychain
 
-> **🐦‍⬛ Autolycus:** You know what else is interesting? The Keychain.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+You know what else is interesting? The Keychain.
+{{% /dialog %}}
 
 When our app calls `SecPKCS12Import`, it doesn't just parse the P12 in memory. It imports the private key and certificate into the iOS Keychain — Apple's secure credential store. This is how `SecIdentity` works under the hood: it's a reference to a Keychain item.
 
@@ -464,26 +524,40 @@ Data:         <private key data in hex>
 ]
 ```
 
-> **🐦‍⬛ Autolycus:** See that? `Extractable: true`. That means I can read the raw private key bytes. Not just a reference to it. The actual key.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+See that? `Extractable: true`. That means I can read the raw private key bytes. Not just a reference to it. The actual key.
+{{% /dialog %}}
 
-> **🦆 Nestor:** Why is it extractable?!
+{{% dialog "🦆 Nestor" %}}
+Why is it extractable?!
+{{% /dialog %}}
 
 ### Why this works
 
-> **🦉 Menthor:** Because that's the default.
+{{% dialog "🦉 Menthor" %}}
+Because that's the default.
+{{% /dialog %}}
 
-> **🦉 Menthor:** The iOS Keychain has several access control flags that govern how items are stored and retrieved. The two most relevant here are:
+{{% dialog "🦉 Menthor" %}}
+The iOS Keychain has several access control flags that govern how items are stored and retrieved. The two most relevant here are:
+{{% /dialog %}}
 
 | Flag | Default | What it controls |
 |------|---------|-----------------|
 | `kSecAttrAccessible` | `kSecAttrAccessibleWhenUnlocked` | *When* the item can be accessed (device locked/unlocked) |
 | `kSecAttrIsExtractable` | `true` | Whether the raw key data can be exported |
 
-> **🦉 Menthor:** When `SecPKCS12Import` imports a private key into the Keychain, it uses the default flags. The key is marked as extractable. This means any code running in the app's process — including Frida's injected JavaScript — can call `SecItemCopyMatching` with `kSecReturnData: true` and receive the raw key bytes.
+{{% dialog "🦉 Menthor" %}}
+When `SecPKCS12Import` imports a private key into the Keychain, it uses the default flags. The key is marked as extractable. This means any code running in the app's process — including Frida's injected JavaScript — can call `SecItemCopyMatching` with `kSecReturnData: true` and receive the raw key bytes.
+{{% /dialog %}}
 
-> **🦉 Menthor:** On a non-jailbroken device, this is not an issue — only your app can access your Keychain items, and if your own app wants to read its own keys, that's expected. The Keychain's security model assumes the process boundary is intact: your app is the only code running in your app.
+{{% dialog "🦉 Menthor" %}}
+On a non-jailbroken device, this is not an issue — only your app can access your Keychain items, and if your own app wants to read its own keys, that's expected. The Keychain's security model assumes the process boundary is intact: your app is the only code running in your app.
+{{% /dialog %}}
 
-> **🦉 Menthor:** A jailbreak shatters that assumption. Frida injects code *into your process*, running with your app's entitlements, with your app's Keychain access group. From the Keychain's perspective, Frida's code *is* your app.
+{{% dialog "🦉 Menthor" %}}
+A jailbreak shatters that assumption. Frida injects code *into your process*, running with your app's entitlements, with your app's Keychain access group. From the Keychain's perspective, Frida's code *is* your app.
+{{% /dialog %}}
 
 {{< mermaid >}}
 graph TD
@@ -503,11 +577,15 @@ graph TD
     style F2 fill:#2d5a27,stroke:#4a8,color:#fff
 {{< /mermaid >}}
 
-> **🐦‍⬛ Autolycus:** The Keychain can't tell the difference between the app asking for the key and *me* asking for the key. Because we're in the same process. I'm wearing the app's clothes.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+The Keychain can't tell the difference between the app asking for the key and *me* asking for the key. Because we're in the same process. I'm wearing the app's clothes.
+{{% /dialog %}}
 
 ## The proof
 
-> **🐦‍⬛ Autolycus:** So let me put it all together. Three attacks, one stolen identity.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+So let me put it all together. Three attacks, one stolen identity.
+{{% /dialog %}}
 
 Let's take stock of what we got:
 
@@ -535,11 +613,15 @@ curl --cacert certs/out/ca.pem \
 
 The server says "Hello demo-iphone, mutual trust established." But it's not talking to the iPhone. It's talking to Autolycus.
 
-> **🐦‍⬛ Autolycus:** *Bows.* Mutual trust, you say? I think the trust was a bit... one-sided.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+*Bows.* Mutual trust, you say? I think the trust was a bit... one-sided.
+{{% /dialog %}}
 
 ## What went wrong?
 
-> **🦆 Nestor:** Okay, I'm upset. We did everything the tutorials said. Custom CA, certificate pinning, mTLS. It all *worked*. How can it be broken?
+{{% dialog "🦆 Nestor" %}}
+Okay, I'm upset. We did everything the tutorials said. Custom CA, certificate pinning, mTLS. It all *worked*. How can it be broken?
+{{% /dialog %}}
 
 Nothing we built was *wrong*. The TLS implementation is correct. The certificate validation is correct. The mTLS handshake is correct. The problem is deeper:
 
@@ -547,26 +629,48 @@ Nothing we built was *wrong*. The TLS implementation is correct. The certificate
 
 It's bytes in a file, or bytes in the Keychain, or bytes in memory. Anyone who can read those bytes can copy them. And on a jailbroken device, the attacker can read anything the app can read — because the attacker *is* the app, from the OS's perspective.
 
-> **🦉 Menthor:** This is the fundamental limitation of software-only key storage. No matter how many layers of encryption, access control, or obfuscation you add — if the key must be loaded into the app's memory to be used, it can be intercepted at the point of use. The chain of trust is only as strong as the most accessible copy of the private key.
+{{% dialog "🦉 Menthor" %}}
+This is the fundamental limitation of software-only key storage. No matter how many layers of encryption, access control, or obfuscation you add — if the key must be loaded into the app's memory to be used, it can be intercepted at the point of use. The chain of trust is only as strong as the most accessible copy of the private key.
+{{% /dialog %}}
 
-> **🦆 Nestor:** So what do we do? Is mTLS useless?
+{{% dialog "🦆 Nestor" %}}
+So what do we do? Is mTLS useless?
+{{% /dialog %}}
 
-> **🦉 Menthor:** Quite the opposite. mTLS is sound. The cryptography is not broken. What's broken is the *key storage model*. We need a way to use a private key without the key ever being readable — not by the app, not by Frida, not by anyone.
+{{% dialog "🦉 Menthor" %}}
+Quite the opposite. mTLS is sound. The cryptography is not broken. What's broken is the *key storage model*. We need a way to use a private key without the key ever being readable — not by the app, not by Frida, not by anyone.
+{{% /dialog %}}
 
-> **🦆 Nestor:** That sounds impossible.
+{{% dialog "🦆 Nestor" %}}
+That sounds impossible.
+{{% /dialog %}}
 
-> **🐦‍⬛ Autolycus:** *Tilts head.* Yeah, how would that even work? If the app can't read the key, how does it sign things?
+{{% dialog "🐦‍⬛ Autolycus" %}}
+*Tilts head.* Yeah, how would that even work? If the app can't read the key, how does it sign things?
+{{% /dialog %}}
 
-> **🦉 Menthor:** By not reading the key. By asking the hardware to sign on the app's behalf.
+{{% dialog "🦉 Menthor" %}}
+By not reading the key. By asking the hardware to sign on the app's behalf.
+{{% /dialog %}}
 
-> **🦆 Nestor:** The hardware?
+{{% dialog "🦆 Nestor" %}}
+The hardware?
+{{% /dialog %}}
 
-> **🦉 Menthor:** The **Secure Enclave**. A separate processor, with its own encrypted memory, built into the iPhone's chip. It generates keys that never leave its boundary. When the app needs to sign something, it sends the data *in*, and the signature comes *out*. The private key itself never enters the app's memory, never touches the Keychain in extractable form, never exists anywhere Frida can reach.
+{{% dialog "🦉 Menthor" %}}
+The **Secure Enclave**. A separate processor, with its own encrypted memory, built into the iPhone's chip. It generates keys that never leave its boundary. When the app needs to sign something, it sends the data *in*, and the signature comes *out*. The private key itself never enters the app's memory, never touches the Keychain in extractable form, never exists anywhere Frida can reach.
+{{% /dialog %}}
 
-> **🐦‍⬛ Autolycus:** ...
+{{% dialog "🐦‍⬛ Autolycus" %}}
+...
+{{% /dialog %}}
 
-> **🦆 Nestor:** Is the crow worried?
+{{% dialog "🦆 Nestor" %}}
+Is the crow worried?
+{{% /dialog %}}
 
-> **🐦‍⬛ Autolycus:** The crow is *intrigued*. Let's see if it's as good as the owl says.
+{{% dialog "🐦‍⬛ Autolycus" %}}
+The crow is *intrigued*. Let's see if it's as good as the owl says.
+{{% /dialog %}}
 
 See you in Part 4.
