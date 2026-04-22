@@ -103,22 +103,26 @@ iproxy 2222 22
 
 ```bash
 # Terminal 2: SSH into the device
-ssh root@localhost -p 2222
-# Password: alpine (the default for jailbroken devices)
+ssh mobile@localhost -p 2222
+# Password: the password you set during jailbreak (default is "alpine" on most jailbreaks)
 ```
 
 Verify Frida can see the device:
 
 ```bash
+# On your Mac
 frida-ls-devices
 ```
 
 ```
-[PLACEHOLDER: You should see your iPhone listed, something like:
-Id              Type    Name
---------------  ------  ----------------
-<device-udid>   usb     iPhone (6S)
-]
+Id                                        Type    Name                         OS
+----------------------------------------  ------  ---------------------------  ----------------
+local                                     local   Local System                 macOS 26.3.1
+6b2e450c798416fdcd7b23313d647fedc3933e07  usb     iPhone                       iPhone OS 15.8.7
+barebone                                  remote  GDB Remote Stub
+socket                                    remote  Local Socket
+00008030-000124C41430802E                 remote  iOS Device [192.168.93.179]  iPhone OS 26.2
+91DCCEC3-16C3-45C1-A76F-24F3701B92F9      remote  iPhone 16e                   iPhone OS 26.2
 ```
 
 And list running processes:
@@ -128,7 +132,36 @@ frida-ps -U
 ```
 
 ```
-[PLACEHOLDER: A long list of processes. Look for familiar ones like SpringBoard, backboardd, etc.]
+ PID  Name
+----  --------------------------------------------------------
+  98  ACCHWComponentAuthService
+ 372  AMDEngagementExtension
+ 338  ASPCarryLog
+ 982  AccountExtension
+ 998  AppPredictionIntentsHelperService
+ 271  AppSSODaemon
+  85  AppleCredentialManagerDaemon
+ 262  AssetCacheLocatorService
+ 121  BlueTool
+ 122  CAReportingService
+ 333  CMFSyncAgent
+ 276  CacheDeleteAppContainerCaches
+1010  CacheDeleteDaily
+ 283  CacheDeleteExtension
+ 187  CalendarWidgetExtension
+1242  Camera
+ 299  CategoriesService
+ 166  CloudKeychainProxy
+  95  CommCenter
+ 133  CommCenterMobileHelper
+ 255  ContainerMetadataExtractor
+ 202  ContextService
+ 975  DPSubmissionService
+ 365  EscrowSecurityAlert
+ 214  FMDMagSafeExtension
+ 404  FSTaskScheduler
+ 226  FamilyControlsAgent
+ ...
 ```
 
 Good. We're in.
