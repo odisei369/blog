@@ -9,4 +9,15 @@ title = 'Ilya Piatrenka'
   bio = 'Senior iOS developer writing about Swift, security, architecture, and mobile engineering.'
   links = [
     { github = 'https://github.com/odisei369' },
+    { linkedin = 'https://www.linkedin.com/in/ipiatrenka' },
   ]
+
+[[menus.main]]
+  name = 'Posts'
+  pageRef = 'posts'
+  weight = 10
+
+[[menus.main]]
+  name = 'About'
+  pageRef = 'about'
+  weight = 20
