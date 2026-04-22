@@ -1,7 +1,7 @@
 ---
 title: "TLS & mTLS — Part 2: The iOS Client"
 date: 2026-03-21
-draft: true
+draft: false
 tags: ["security", "tls", "mtls", "ios", "swift"]
 series: ["TLS & mTLS"]
 series_order: 2

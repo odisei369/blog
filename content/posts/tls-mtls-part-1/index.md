@@ -1,7 +1,7 @@
 ---
 title: "TLS & mTLS — Part 1: Setting Up the Playground"
 date: 2026-03-20
-draft: true
+draft: false
 tags: ["security", "tls", "mtls", "go"]
 series: ["TLS & mTLS"]
 series_order: 1
