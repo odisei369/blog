@@ -35,15 +35,14 @@ mainSections = ['posts']
   showViews = true
 
 [umamiAnalytics]
-  websiteid = "REPLACE_WITH_WEBSITE_ID"
-  domain = "REPLACE_WITH_UMAMI_DOMAIN"
+  websiteid = "392f8993-ec17-49e4-b306-bcbbd45d3f02"
+  domain = "umami.nidobit.com"
   enableTrackEvent = true
 
 [firebase]
-  apiKey = "REPLACE"
-  authDomain = "REPLACE"
-  projectId = "REPLACE"
-  storageBucket = "REPLACE"
-  messagingSenderId = "REPLACE"
-  appId = "REPLACE"
-  measurementId = "REPLACE"
+  apiKey = "AIzaSyDYe3FSEejf1WFeLATEW7jYcgvnIHOILBI"
+  authDomain = "nidobit.firebaseapp.com"
+  projectId = "nidobit"
+  storageBucket = "nidobit.firebasestorage.app"
+  messagingSenderId = "230054546283"
+  appId = "1:230054546283:web:6488497aeeca77fd6a9a2e"
