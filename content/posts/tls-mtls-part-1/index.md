@@ -87,9 +87,6 @@ Khm... yeah, kind of. Except our stick is `curl` and the thing we're poking will
 |------|------|----------|----------------|
 | 8443 | TLS | `GET /hello` | Server proves its identity |
 | 8444 | mTLS | `GET /secure` | Both sides prove identity |
-| 8445 | TLS | `POST /sign-csr` | Provisioning — signs certificate requests |
-
-Port 8445 exists for later — when our iOS app generates a key in the Secure Enclave and needs the server to sign a certificate for it. We'll get to that in a future part.
 
 ## Generating certificates
 
@@ -200,6 +197,14 @@ sequenceDiagram
 
 The server certificate has a Subject Alternative Name (SAN) — `DNS:localhost,IP:127.0.0.1`. This is important: modern TLS stacks (including iOS) ignore the old Common Name field for hostname matching and require SAN instead.
 
+If you plan to test on a **real device** (not the simulator), you'll need to add your Mac's LAN IP to the SAN. The actual `generate_certs.sh` script in the repo supports this:
+
+```bash
+./generate_certs.sh --extra-ip 192.168.1.42
+```
+
+This produces a server certificate with `DNS:localhost,IP:127.0.0.1,IP:192.168.1.42` — so it works from both the simulator (`localhost`) and a phone on your network. We'll need this in Part 3.
+
 After running the script, we get:
 
 ```
@@ -228,31 +233,19 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
-	"io"
 	"log"
-	"math/big"
-	"math/rand"
 	"net/http"
 	"os"
-	"time"
 )
 
 func main() {
 	certsDir := "../certs/out"
 
-	// Load CA — we need it to verify client certs and sign CSRs
+	// Load CA — we need it to verify client certs
 	caCert, _ := os.ReadFile(certsDir + "/ca.pem")
 	caPool := x509.NewCertPool()
 	caPool.AppendCertsFromPEM(caCert)
-
-	caKeyPEM, _ := os.ReadFile(certsDir + "/ca.key")
-	caKeyBlock, _ := pem.Decode(caKeyPEM)
-	caKey, _ := x509.ParseECPrivateKey(caKeyBlock.Bytes)
-
-	caCertBlock, _ := pem.Decode(caCert)
-	caCertParsed, _ := x509.ParseCertificate(caCertBlock.Bytes)
 
 	serverCert, _ := tls.LoadX509KeyPair(
 		certsDir+"/server.pem", certsDir+"/server.key",
@@ -300,56 +293,11 @@ func main() {
 		},
 	}
 
-	// --- Port 8445: Provisioning (signs CSRs) ---
-	provMux := http.NewServeMux()
-	provMux.HandleFunc("/sign-csr", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "POST only", http.StatusMethodNotAllowed)
-			return
-		}
-		body, _ := io.ReadAll(r.Body)
-
-		block, _ := pem.Decode(body)
-		if block == nil || block.Type != "CERTIFICATE REQUEST" {
-			http.Error(w, "Invalid PEM", http.StatusBadRequest)
-			return
-		}
-
-		csr, _ := x509.ParseCertificateRequest(block.Bytes)
-		csr.CheckSignature()
-
-		template := &x509.Certificate{
-			SerialNumber: big.NewInt(rand.Int63()),
-			Subject:      csr.Subject,
-			NotBefore:    time.Now(),
-			NotAfter:     time.Now().Add(365 * 24 * time.Hour),
-			KeyUsage:     x509.KeyUsageDigitalSignature,
-			ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-		}
-
-		certDER, _ := x509.CreateCertificate(nil, template, caCertParsed, csr.PublicKey, caKey)
-
-		w.Header().Set("Content-Type", "application/x-pem-file")
-		pem.Encode(w, &pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-		log.Printf("[provisioning] Signed certificate for CN=%s", csr.Subject.CommonName)
-	})
-
-	provServer := &http.Server{
-		Addr:    ":8445",
-		Handler: provMux,
-		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{serverCert},
-			ClientAuth:   tls.NoClientCert,
-		},
-	}
-
 	log.Println("TLS  server on :8443 (server auth only)")
 	log.Println("mTLS server on :8444 (mutual auth required)")
-	log.Println("Prov server on :8445 (CSR signing)")
 
 	go tlsServer.ListenAndServeTLS("", "")
-	go mtlsServer.ListenAndServeTLS("", "")
-	provServer.ListenAndServeTLS("", "")
+	mtlsServer.ListenAndServeTLS("", "")
 }
 ```
 

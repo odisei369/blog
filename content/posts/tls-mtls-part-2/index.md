@@ -12,7 +12,7 @@ summary: "Nestor and the developer teach an iPhone to speak TLS. A crow shows up
 Last time we built a server and poked it with sticks. When do we build the phone thing?
 {{% /dialog %}}
 
-Right now. We have a Go server running three ports — TLS on 8443, mTLS on 8444, provisioning on 8445. Time to write an iOS app that connects to it.
+Right now. We have a Go server running two ports — TLS on 8443, mTLS on 8444. Time to write an iOS app that connects to it.
 
 But first, a small detour.
 
@@ -62,6 +62,25 @@ Two tabs for now:
 | **mTLS** | Same as above, plus presents a client certificate | `:8444/secure` |
 
 Both tabs share the same Go server from Part 1, the same certificates, the same CA. The only difference is what happens during the handshake.
+
+The server URL lives in a `ServerConfig` enum:
+
+```swift
+enum ServerConfig {
+    #if targetEnvironment(simulator)
+    static let host = "localhost"
+    #else
+    static let host = "192.168.1.42"  // your Mac's LAN IP
+    #endif
+
+    static var tlsURL: URL { URL(string: "https://\(host):8443/hello")! }
+    static var mtlsURL: URL { URL(string: "https://\(host):8444/secure")! }
+}
+```
+
+On the simulator, `localhost` works — the simulator shares the Mac's network stack. On a real device, you need your Mac's LAN IP. Remember to regenerate the server certificate with that IP in the SAN (see Part 1's `--extra-ip` flag), otherwise the TLS handshake will fail hostname verification.
+
+One more thing: when the iPhone first connects, macOS will pop up a firewall dialog asking whether to allow incoming connections to the Go server. Click **Allow** — otherwise the connection will silently fail and you'll stare at a loading spinner wondering what went wrong.
 
 ## The gatekeeper: URLSessionDelegate
 
@@ -248,16 +267,35 @@ Now the interesting part. The mTLS service handles **two** challenge types.
 
 But first, we need to load the client identity. Remember the `.p12` file from Part 1? It bundles the client's private key and certificate into one password-protected container.
 
+In a real app, you'd provision the client certificate from a server — an MDM enrollment, a custom provisioning endpoint, something like that. The P12 would arrive over the network, get imported once, and then live in the Keychain for all future connections. Our demo simulates this: we import from the bundled P12 on first launch, store the identity in the Keychain, and load from the Keychain on subsequent launches.
+
 ```swift
+/// Loads the client identity: tries the Keychain first, falls back to P12 import + store.
 static func loadIdentity(from p12Name: String, password: String) -> SecIdentity? {
+    // Try Keychain first
+    if let stored = loadIdentityFromKeychain(label: p12Name) {
+        return stored
+    }
+
+    // First launch: import from P12 and store
+    guard let imported = importIdentityFromP12(named: p12Name, password: password) else {
+        return nil
+    }
+    storeIdentityInKeychain(imported, label: p12Name)
+    return imported
+}
+```
+
+The P12 import itself is straightforward:
+
+```swift
+private static func importIdentityFromP12(named p12Name: String, password: String) -> SecIdentity? {
     guard let url = Bundle.main.url(forResource: p12Name, withExtension: "p12"),
           let data = try? Data(contentsOf: url) else {
         return nil
     }
 
-    let options: [String: Any] = [
-        kSecImportExportPassphrase as String: password
-    ]
+    let options: [String: Any] = [kSecImportExportPassphrase as String: password]
     var items: CFArray?
     let status = SecPKCS12Import(data as CFData, options as CFDictionary, &items)
 
@@ -271,7 +309,61 @@ static func loadIdentity(from p12Name: String, password: String) -> SecIdentity?
 }
 ```
 
-`SecPKCS12Import` takes the raw `.p12` data and the password, and gives back a `SecIdentity` — an opaque object that holds both the private key and the certificate. We'll hand this to the URL session when the server asks "who are you?"
+`SecPKCS12Import` takes the raw `.p12` data and the password, and gives back a `SecIdentity` — an opaque object that holds both the private key and the certificate.
+
+After importing, we store the key and certificate in the Keychain with default flags:
+
+```swift
+private static func storeIdentityInKeychain(_ identity: SecIdentity, label: String) {
+    var cert: SecCertificate?
+    SecIdentityCopyCertificate(identity, &cert)
+
+    var key: SecKey?
+    SecIdentityCopyPrivateKey(identity, &key)
+
+    if let key = key {
+        let keyQuery: [String: Any] = [
+            kSecClass as String: kSecClassKey,
+            kSecValueRef as String: key,
+            kSecAttrLabel as String: label,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked
+        ]
+        SecItemAdd(keyQuery as CFDictionary, nil)
+    }
+
+    if let cert = cert {
+        let certQuery: [String: Any] = [
+            kSecClass as String: kSecClassCertificate,
+            kSecValueRef as String: cert,
+            kSecAttrLabel as String: label,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked
+        ]
+        SecItemAdd(certQuery as CFDictionary, nil)
+    }
+}
+```
+
+{{% dialog "🦆 Nestor" %}}
+`kSecAttrAccessibleWhenUnlocked`... that means the key is available whenever the phone is unlocked?
+{{% /dialog %}}
+
+Right. And we're not setting any special access control flags — no biometric requirement, no `kSecAttrIsExtractable: false`. Just the defaults. This will matter in Part 3.
+
+{{% dialog "🐦‍⬛ Autolycus" %}}
+*From the shelf. Takes notes furiously.*
+{{% /dialog %}}
+
+We'll hand the identity to the URL session when the server asks "who are you?"
+
+**A gotcha if you're using OpenSSL 3.x:** by default, `openssl pkcs12 -export` now uses modern encryption (AES-256-CBC + HMAC-SHA256). iOS 15's `SecPKCS12Import` doesn't understand that format — it silently fails and returns an empty array. Add the `-legacy` flag to generate a P12 with the older 3DES + SHA1 encryption that iOS 15 expects:
+
+```bash
+openssl pkcs12 -export -legacy -out client.p12 \
+    -inkey client.key -in client.pem -certfile ca.pem \
+    -passout pass:demo
+```
+
+If `SecPKCS12Import` returns `errSecSuccess` but `items` is empty, this is almost certainly why.
 
 {{% dialog "🐦‍⬛ Autolycus" %}}
 *From the shelf.* Did he just hardcode the password as `"demo"`?
