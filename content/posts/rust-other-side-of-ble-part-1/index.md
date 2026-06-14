@@ -1,6 +1,6 @@
 ---
 title: "Rust on the Other Side of BLE — Part 1: The Board Is Not a Blank Slate"
-date: 2026-05-16
+date: 2026-06-14
 draft: false
 tags: ["rust", "embedded", "nrf52840", "ble", "embassy"]
 series: ["Rust on the Other Side of BLE"]

@@ -1,6 +1,6 @@
 ---
 title: "Rust on the Other Side of BLE — Part 3: Four Bytes, Four Bars, a Live Demo"
-date: 2026-05-16
+date: 2026-06-16
 draft: false
 tags: ["rust", "embedded", "nrf52840", "ble", "embassy", "trouble-host"]
 series: ["Rust on the Other Side of BLE"]

@@ -1,6 +1,6 @@
 ---
 title: "Rust on the Other Side of BLE — Part 2: The Reset Loop That Lied"
-date: 2026-05-16
+date: 2026-06-15
 draft: false
 tags: ["rust", "embedded", "nrf52840", "ble", "embassy", "debugging"]
 series: ["Rust on the Other Side of BLE"]
