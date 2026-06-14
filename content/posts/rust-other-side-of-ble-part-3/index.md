@@ -364,17 +364,17 @@ The server is the simplest part of the system. It's a single-file Bun app that s
 
 All state is in-memory. There is no database. If the server restarts mid-demo, the question stack and the player list are gone. That is fine for a 20-minute demo on a presenter's laptop and would be wrong for anything bigger. We are pricing in the smallness.
 
-The question set is hard-coded in `server.ts`, four questions about embedded Rust:
+The question set lives in a JSON file that `server.ts` loads at startup — `questions.json` in prod (gitignored, so the real answers don't sit in the repo) with `questions.example.json` as a checked-in dev fallback. Four questions about embedded Rust:
 
-```typescript
-const QUESTIONS: Question[] = [
+```json
+[
   {
-    text: "Which crate provides the async runtime on bare-metal Rust?",
-    options: ["tokio", "Embassy", "async-std", "smol"],
-    correct: 1,
+    "text": "Which crate provides the async runtime on bare-metal Rust?",
+    "options": ["tokio", "Embassy", "async-std", "smol"],
+    "correct": 1
   },
-  // ...
-];
+  ...
+]
 ```
 
 This is the entire interaction model. The audience taps. The server tallies. The bridge polls. The firmware writes bytes. The LEDs light up. Each layer is small enough that you can read its source in one sitting.
