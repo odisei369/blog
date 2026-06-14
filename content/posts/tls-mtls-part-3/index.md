@@ -8,6 +8,8 @@ series_order: 3
 summary: "A crow breaks into the iOS app we built. Extracts the certificate, hooks the delegate, dumps the Keychain. Everything we shipped in Part 2 falls apart."
 ---
 
+*Code for this part: [github.com/odisei369/tls-mtls-demo @ `part-3`](https://github.com/odisei369/tls-mtls-demo/tree/part-3)*
+
 *The crow hops down from the shelf.*
 
 {{% dialog "🐦‍⬛ Autolycus" %}}

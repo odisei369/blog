@@ -8,6 +8,8 @@ series_order: 4
 summary: "We fix what the crow broke. The Secure Enclave generates a key that never leaves the chip — and Autolycus finally meets a lock he can't pick."
 ---
 
+*Code for this part: [github.com/odisei369/tls-mtls-demo @ `part-4`](https://github.com/odisei369/tls-mtls-demo/tree/part-4)*
+
 {{% dialog "🦆 Nestor" %}}
 So the key lives in a tiny vault inside the chip?
 {{% /dialog %}}
@@ -177,7 +179,105 @@ You're building ASN.1 by hand? This is going to be fun to watch.
 
 ### The ASN.1 builder
 
-[PLACEHOLDER: ASN.1 helper code — functions to encode TLV (tag-length-value), SEQUENCE, OID, PrintableString, INTEGER, BIT STRING]
+Every ASN.1 value, in DER, is a **tag-length-value** record: one byte for the tag, one-or-more bytes for the length, then the value. Constructed types like `SEQUENCE` are just TLV records whose value is the concatenation of more TLV records. So the whole encoder collapses into a tiny set of primitives that compose:
+
+```swift
+enum ASN1 {
+
+    enum Tag {
+        static let integer: UInt8    = 0x02
+        static let bitString: UInt8  = 0x03
+        static let oid: UInt8        = 0x06
+        static let utf8String: UInt8 = 0x0C
+        static let sequence: UInt8   = 0x30  // constructed
+        static let set: UInt8        = 0x31  // constructed
+    }
+
+    /// tag || length || value
+    static func tlv(tag: UInt8, value: Data) -> Data {
+        var out = Data([tag])
+        out.append(encodeLength(value.count))
+        out.append(value)
+        return out
+    }
+
+    /// DER length: short form for <128, long form otherwise.
+    static func encodeLength(_ length: Int) -> Data {
+        if length < 0x80 { return Data([UInt8(length)]) }
+        var bytes: [UInt8] = []
+        var n = length
+        while n > 0 {
+            bytes.insert(UInt8(n & 0xFF), at: 0)
+            n >>= 8
+        }
+        return Data([0x80 | UInt8(bytes.count)] + bytes)
+    }
+
+    static func sequence(_ children: [Data]) -> Data {
+        tlv(tag: Tag.sequence, value: children.reduce(Data(), +))
+    }
+
+    static func set(_ children: [Data]) -> Data {
+        tlv(tag: Tag.set, value: children.reduce(Data(), +))
+    }
+
+    /// Context-specific tag [n], constructed — used for the CSR's `attributes [0]`.
+    static func contextSpecificConstructed(_ tagNumber: UInt8, _ value: Data) -> Data {
+        tlv(tag: 0xA0 | (tagNumber & 0x1F), value: value)
+    }
+
+    /// Non-negative INTEGER. DER requires a leading 0x00 if the top bit is set
+    /// (otherwise the value would be interpreted as negative).
+    static func integer(_ value: Int) -> Data {
+        var bytes: [UInt8] = []
+        var n = value
+        if n == 0 { bytes = [0x00] } else {
+            while n > 0 { bytes.insert(UInt8(n & 0xFF), at: 0); n >>= 8 }
+            if bytes[0] & 0x80 != 0 { bytes.insert(0x00, at: 0) }
+        }
+        return tlv(tag: Tag.integer, value: Data(bytes))
+    }
+
+    /// BIT STRING with the leading 0x00 "unused bits" byte
+    /// (we never pad partial bytes in a CSR).
+    static func bitString(_ data: Data) -> Data {
+        var value = Data([0x00])
+        value.append(data)
+        return tlv(tag: Tag.bitString, value: value)
+    }
+
+    static func utf8String(_ s: String) -> Data {
+        tlv(tag: Tag.utf8String, value: Data(s.utf8))
+    }
+
+    /// OID from a dotted string, e.g. "1.2.840.10045.2.1".
+    /// Rules: first two arcs combine as `40 * a + b`; later arcs are base-128
+    /// with the high bit set on every byte except the last.
+    static func oid(_ dotted: String) -> Data {
+        let arcs = dotted.split(separator: ".").compactMap { UInt64($0) }
+        var bytes: [UInt8] = [UInt8(arcs[0] * 40 + arcs[1])]
+        for arc in arcs.dropFirst(2) { bytes.append(contentsOf: base128(arc)) }
+        return tlv(tag: Tag.oid, value: Data(bytes))
+    }
+
+    private static func base128(_ value: UInt64) -> [UInt8] {
+        if value == 0 { return [0x00] }
+        var out: [UInt8] = []
+        var n = value
+        while n > 0 { out.insert(UInt8(n & 0x7F), at: 0); n >>= 7 }
+        for i in 0..<(out.count - 1) { out[i] |= 0x80 }
+        return out
+    }
+}
+```
+
+{{% dialog "🦆 Nestor" %}}
+That's the whole encoder?
+{{% /dialog %}}
+
+{{% dialog "🦉 Menthor" %}}
+That is the whole encoder. ASN.1 has a fearsome reputation, but DER is — at its core — recursion plus a couple of edge cases. The cases worth remembering are the length encoding (short vs. long form), the leading-zero byte on positive INTEGERs, and the "unused bits" prefix on BIT STRINGs. Everything else is bookkeeping.
+{{% /dialog %}}
 
 ### Assembling the CSR
 
@@ -235,7 +335,77 @@ Precisely. The `requestInfo` bytes are sent to the SE through the hardware mailb
 
 Exactly. You can *use* the key (by calling the signing function while the app is running), but you can never *take* it.
 
-[PLACEHOLDER: Detailed ASN.1 construction code with explanation — buildSubjectDN, buildSubjectPublicKeyInfo, buildCertificationRequestInfo, buildCertificationRequest]
+Each helper assembles one fragment of the PKCS#10 structure. They all return raw `Data` so the outer functions can compose them like Lego bricks.
+
+```swift
+private enum OID {
+    static let commonName  = "2.5.4.3"
+    static let ecPublicKey = "1.2.840.10045.2.1"
+    static let prime256v1  = "1.2.840.10045.3.1.7"
+    static let ecdsaSHA256 = "1.2.840.10045.4.3.2"
+}
+
+// Name ::= SEQUENCE OF RelativeDistinguishedName
+// RDN ::= SET OF AttributeTypeAndValue { type OID, value ANY }
+// We use a single RDN containing only a CommonName.
+private static func buildSubjectDN(commonName: String) -> Data {
+    let attribute = ASN1.sequence([
+        ASN1.oid(OID.commonName),
+        ASN1.utf8String(commonName)
+    ])
+    return ASN1.sequence([ ASN1.set([attribute]) ])
+}
+
+// SubjectPublicKeyInfo ::= SEQUENCE {
+//     algorithm        AlgorithmIdentifier { ecPublicKey, prime256v1 },
+//     subjectPublicKey BIT STRING  -- the 65-byte uncompressed EC point
+// }
+private static func buildSubjectPublicKeyInfo(publicKeyPoint: Data) -> Data {
+    let algorithm = ASN1.sequence([
+        ASN1.oid(OID.ecPublicKey),
+        ASN1.oid(OID.prime256v1)
+    ])
+    return ASN1.sequence([
+        algorithm,
+        ASN1.bitString(publicKeyPoint)
+    ])
+}
+
+// CertificationRequestInfo — these are the bytes that get signed.
+private static func buildCertificationRequestInfo(commonName: String, publicKeyPoint: Data) -> Data {
+    ASN1.sequence([
+        ASN1.integer(0),                                           // version v1
+        buildSubjectDN(commonName: commonName),                     // subject
+        buildSubjectPublicKeyInfo(publicKeyPoint: publicKeyPoint),  // subjectPKInfo
+        ASN1.contextSpecificConstructed(0, Data())                  // attributes [0] — empty
+    ])
+}
+
+// CertificationRequest ::= SEQUENCE {
+//     certificationRequestInfo CertificationRequestInfo,
+//     signatureAlgorithm       AlgorithmIdentifier,
+//     signature                BIT STRING
+// }
+// ecdsa-with-SHA256 has ABSENT parameters per RFC 5758 — no NULL after the OID.
+// SecKeyCreateSignature already returns a DER-encoded ECDSA-Sig-Value
+// (SEQUENCE { r INTEGER, s INTEGER }), so we drop it straight into a BIT STRING.
+private static func buildCertificationRequest(info: Data, signature: Data) -> Data {
+    let sigAlgorithm = ASN1.sequence([ ASN1.oid(OID.ecdsaSHA256) ])
+    return ASN1.sequence([
+        info,
+        sigAlgorithm,
+        ASN1.bitString(signature)
+    ])
+}
+```
+
+{{% dialog "🦆 Nestor" %}}
+Two OIDs in the public key algorithm, but only one in the signature algorithm?
+{{% /dialog %}}
+
+{{% dialog "🦉 Menthor" %}}
+Different specs, different conventions. For `id-ecPublicKey`, the curve is encoded as a parameter — it tells you *which* EC group the key lives in. For `ecdsa-with-SHA256`, the curve is already implied by the public key, and the spec explicitly forbids parameters (not even an explicit `NULL`). It is the kind of detail you only learn by reading the RFC, building the CSR, watching `openssl` reject it, and reading the RFC again.
+{{% /dialog %}}
 
 ### Verifying the CSR
 
@@ -247,12 +417,40 @@ openssl req -in se_csr.pem -text -noout -verify
 ```
 
 ```
-[PLACEHOLDER: openssl output showing the CSR details — subject, public key, signature verification]
+Certificate request self-signature verify OK
+Certificate Request:
+    Data:
+        Version: 1 (0x0)
+        Subject: CN=TLSDemo-SE-Client
+        Subject Public Key Info:
+            Public Key Algorithm: id-ecPublicKey
+                Public-Key: (256 bit)
+                pub:
+                    04:f2:b8:fb:55:08:da:19:65:61:d1:94:d5:cc:86:
+                    50:62:1b:40:a4:68:99:36:8d:c0:63:60:cb:64:5a:
+                    7d:cb:c3:21:b0:7c:0a:41:8b:65:88:2d:de:4b:09:
+                    2e:19:d2:4d:11:d1:d8:b3:b2:28:be:76:ea:80:e7:
+                    b1:b2:d8:a6:24
+                ASN1 OID: prime256v1
+                NIST CURVE: P-256
+        Attributes:
+            (none)
+            Requested Extensions:
+    Signature Algorithm: ecdsa-with-SHA256
+    Signature Value:
+        30:45:02:21:00:b3:a8:13:3e:6e:6d:b8:53:08:73:dc:9b:8c:
+        03:58:b8:bb:6c:32:3f:b7:9f:34:44:37:d5:2f:f6:9e:55:00:
+        98:02:20:6b:c6:76:a8:09:98:b8:43:c0:49:d1:2d:8a:78:bb:
+        d5:0a:76:98:a2:3b:7e:21:71:d5:bb:7b:9e:ad:85:db:02
 ```
+
+That first line — `Certificate request self-signature verify OK` — is what we care about. The CSR was signed by the Secure Enclave, and the signature checks out against the public key embedded in the same CSR. Subject `CN=TLSDemo-SE-Client`, `id-ecPublicKey` on `prime256v1` (P-256), `ecdsa-with-SHA256` — exactly the structure we built by hand.
 
 ## Step 3: Provisioning — getting a signed certificate
 
 Now we need a server endpoint that accepts CSRs and returns signed certificates. Time to add a provisioning port to our Go server.
+
+> **Reminder:** this is the first step in Part 4 that talks to the server. If your Mac's LAN IP has changed since Part 2 — or if you're jumping straight into Part 4 — regenerate the server certificate with your current IP using Part 1's `--extra-ip` flag (`./generate_certs.sh --extra-ip <your-mac-ip>`), copy the fresh `ca.der` into the app's bundle, restart the Go server, and clean-build the app so the new CA is picked up. Otherwise the TLS handshake to `:8445` will fail with a trust error before the CSR ever reaches the endpoint.
 
 ```go
 // --- Port 8445: Provisioning (signs CSRs) ---
@@ -368,7 +566,13 @@ func loadSEIdentity(label: String) -> SecIdentity? {
 The delegate code is **identical** to Part 2. The `URLSession` doesn't know or care that the identity is backed by the Secure Enclave. It calls `SecKeyCreateSignature` during the TLS handshake, which routes to the SE transparently. From the server's perspective, it's the same mTLS handshake.
 
 ```
-[PLACEHOLDER: App log output showing the SE-backed mTLS connection succeeding]
+Loaded SE-backed SecIdentity from Keychain
+Starting SE-backed mTLS connection to <IP>:8444
+Received server trust challenge
+Server identity verified
+Received client certificate challenge
+Presenting SE-backed client identity (key stays in chip)
+Response: Hello TLSDemo-SE-Client, mutual trust established
 ```
 
 {{% dialog "🦆 Nestor" %}}
@@ -398,7 +602,8 @@ find /var/containers/Bundle/Application/ -name "*.p12" -path "*TLSDemo*"
 ```
 
 ```
-[PLACEHOLDER: only client.p12 from Part 2 tabs — no P12 for the SE tab]
+Ilyas-iPhone:~ mobile% find /var/containers/Bundle/Application/ -name "*.p12" -path "*TLSDemo*"
+/var/containers/Bundle/Application/E7D3000A-DDC2-4865-9B72-CFF10225B1AD/TLSDemo.app/client.p12
 ```
 
 {{% dialog "🐦‍⬛ Autolycus" %}}
