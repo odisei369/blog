@@ -5,6 +5,8 @@ draft: false
 tags: ["rust", "embedded", "nrf52840", "ble", "embassy"]
 series: ["Rust on the Other Side of BLE"]
 series_order: 1
+aliases:
+  - /rust-ble
 summary: "A duck buys a $6 microcontroller. The cuckoo inside it points out that 200 KB of the flash is already occupied by code the duck never wrote."
 ---
 
