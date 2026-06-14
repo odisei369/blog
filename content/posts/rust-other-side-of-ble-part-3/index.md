@@ -379,32 +379,6 @@ The question set lives in a JSON file that `server.ts` loads at startup — `que
 
 This is the entire interaction model. The audience taps. The server tallies. The bridge polls. The firmware writes bytes. The LEDs light up. Each layer is small enough that you can read its source in one sitting.
 
-## What embedded Rust actually feels like
-
-I want to close on something honest about the experience of building this.
-
-A pitch you hear often is *"Rust is memory-safe, so embedded Rust is safer than embedded C, so embedded Rust is easier than embedded C."* The first half of that is true. The second half is not, or at least not the way the pitch implies.
-
-Embedded Rust is not easier than embedded C. It is **safer** than embedded C — the borrow checker catches a real class of bugs that take hours to find with `gdb` and a logic analyzer. But the world it operates in is identical: the same linker scripts, the same chip errata, the same vendor SDKs translated to Rust, the same datasheets full of register tables, the same five hours of "why doesn't this peripheral respond" ending in *"oh, the clock to that peripheral was off the whole time."*
-
-What changes is *the texture of the work*. In embedded C, you usually find out your code is wrong when the chip crashes and you spend two hours figuring out which pointer was bad. In embedded Rust, you usually find out your code is wrong when it doesn't compile, and you spend two hours figuring out which lifetime annotation will make the borrow checker stop complaining. The bugs move from runtime to compile time. The frequency of bugs goes down. The frustration of each individual bug, in my experience, goes up — because the bugs that remain are the ones the compiler can't help with, and those are the gnarly ones.
-
-{{% dialog "🦆 Nestor" %}}
-Three weeks ago I bought a six-dollar chip and thought I'd write some Rust on it. I have now written nine pages of debugging notes, ordered a $3 probe, destroyed a `VDD` pad, learned the BT spec's address-type encoding, and reasoned about ELF segment layouts.
-{{% /dialog %}}
-
-{{% dialog "🐦 Penelope" %}}
-And the BLE works. The bars rise. The phones vote and the LEDs respond and *everyone in the room can see it* and *every byte in that firmware is a byte you understand.* You wrote it, you placed it, you flashed it, you watched it run. Try buying that experience as a service. You can't! It's not for sale!
-{{% /dialog %}}
-
-{{% dialog "🦉 Menthor" %}}
-The deeper reward, in my view, is that the abstraction stack collapses. There is no operating system between you and the radio. No driver layer between you and the SPI peripheral. No allocator between you and the bytes. The thing that happens when you write `display.show_bars([70, 20, 8, 2])` is *exactly* what you think happens: bytes get clocked out on a wire, latches latch, LEDs light up. Few activities in modern software have that property anymore. *Ahem.*
-{{% /dialog %}}
-
-The trade-off, of course, is that you can no longer pretend the abstractions don't exist. The MBR is real. The SoftDevice region is real. The HCI status codes are real. The 1.5 mm pitch of the SWD pads is real. You spend a lot of time learning things that, in a higher-level system, somebody had already learned for you. Some of it is genuinely interesting and some of it is the kind of detail you wish you could buy your way out of.
-
-But when it works, you *own it*. There's nothing in the binary you didn't put there. The 132 KB on flash is 132 KB you wrote (or linked, or knowingly imported). You can read every line. You can explain every byte. That ownership, more than the safety, is what keeps me coming back.
-
 ## See it run
 
 The full project is at [github.com/odisei369/ble-quiz-display](https://github.com/odisei369/ble-quiz-display). Firmware in [`src/`](https://github.com/odisei369/ble-quiz-display/tree/main/src), Mac bridge in [`bridge/`](https://github.com/odisei369/ble-quiz-display/tree/main/bridge), and quiz server in [`quiz-server/`](https://github.com/odisei369/ble-quiz-display/tree/main/quiz-server).
