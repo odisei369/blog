@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '30 5 * * *'   # daily 05:30 UTC — publishes posts whose publishDate has passed
 
 permissions:
   contents: read
